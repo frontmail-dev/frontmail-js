@@ -2,6 +2,7 @@ import type { FrontmailError, MessageStatusResponse, SendOptions, SendResult, Te
 import { isFrontmailError, FrontmailError as FrontmailErrorClass } from '@frontmail/sdk-core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFrontmail } from './context';
+import { withTurnstileKey } from './turnstile-key';
 
 /** `sent` = accepted by the API and queued for delivery; `held` = accepted and waiting for credits. */
 export type SendStatus = 'idle' | 'sending' | 'sent' | 'held' | 'error';
@@ -15,7 +16,7 @@ export interface SendState {
 export interface UseSendEmail<T extends string> extends SendState {
   /**
    * Sends the template. Pass `{ turnstileToken }` from `<TurnstileWebView>` when the template requires
-   * Turnstile. Resolves with the result, or `undefined` on error (see `error`) – it never rejects.
+   * Turnstile (tokens from a widget with your own `siteKey` are sent with `turnstileKey: 'org'`). Resolves with the result, or `undefined` on error (see `error`) – it never rejects.
    */
   send(params: TemplateParams<T>, options?: SendOptions): Promise<SendResult | undefined>;
   /** Delivery status of the last accepted message (uses its status token). */
@@ -49,7 +50,7 @@ export function useSendEmail<T extends string>(serviceId: string | null | undefi
       const update = (s: SendState) => mounted.current && id === callId.current && setState(s);
       update({ status: 'sending', error: null, result: null });
       try {
-        const result = await client.send(serviceId, templateId, params, options);
+        const result = await client.send(serviceId, templateId, params, withTurnstileKey(options));
         last.current = result;
         update({ status: result.status === 'held' ? 'held' : 'sent', error: null, result });
         return result;

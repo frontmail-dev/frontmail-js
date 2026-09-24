@@ -109,6 +109,7 @@ export function createClient(options: ClientOptions = {}): Client {
             user_id: publicKey,
             template_params: p,
             turnstile_token: o.turnstileToken,
+            turnstile_key: o.turnstileKey,
             attachments: o.attachments?.map((a) =>
               'uploadId' in a
                 ? { upload_id: a.uploadId }
@@ -129,6 +130,7 @@ export function createClient(options: ClientOptions = {}): Client {
       fd.set('template_id', templateId);
       if (publicKey) fd.set('user_id', publicKey);
       if (o.turnstileToken) fd.set(TURNSTILE_FIELD, o.turnstileToken);
+      if (o.turnstileKey) fd.set('turnstile_key', o.turnstileKey);
       return guarded(o, (n) => fd.get(n), (idempotencyKey) =>
         request<RawSendResponse>(options.paths?.sendForm ?? '/v1/send-form', {
           method: 'POST',

@@ -10,6 +10,7 @@
   "origin_not_allowed": 403,
   "captcha_required": 403,
   "captcha_failed": 403,
+  "captcha_not_configured": 403,
   "headless_blocked": 403,
   "recipient_blocked": 403,
   "private_key_required": 403,

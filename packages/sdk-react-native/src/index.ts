@@ -15,6 +15,7 @@ export {
   RateLimitError,
   ValidationError,
   createClient,
+  getPublicConfig,
   isFrontmailError,
   uuid,
 } from '@frontmail/sdk-core';
@@ -24,9 +25,11 @@ export type {
   ErrorCode,
   FrontmailTemplates,
   MessageStatusResponse,
+  PublicConfig,
   SendOptions,
   SendResult,
   StorageProvider,
   TemplateId,
   TemplateParams,
+  TurnstileKey,
 } from '@frontmail/sdk-core';

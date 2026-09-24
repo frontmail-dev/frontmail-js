@@ -51,6 +51,15 @@ describe('send', () => {
     expect(init.headers['Idempotency-Key']).toMatch(/^[0-9a-f-]{36}$/);
   });
 
+  it('sends turnstile_key only when set', async () => {
+    const { fetch, calls } = mockFetch(accepted());
+    const client = createClient({ publicKey: 'pk_1', fetch });
+    await settle(client.send('s', 't', {}, { turnstileToken: 'ts', turnstileKey: 'org' }));
+    await settle(client.send('s', 't', {}, { turnstileToken: 'ts' }));
+    expect(JSON.parse(calls[0]!.init.body as string)).toMatchObject({ turnstile_token: 'ts', turnstile_key: 'org' });
+    expect(JSON.parse(calls[1]!.init.body as string)).not.toHaveProperty('turnstile_key');
+  });
+
   it('uses the private key as bearer token and maps attachments', async () => {
     const { fetch, calls } = mockFetch(accepted());
     const client = createClient({ privateKey: 'sk_1', fetch });
@@ -211,6 +220,7 @@ describe('error mapping', () => {
     [403, 'origin_not_allowed', AuthError],
     [403, 'private_key_required', AuthError],
     [403, 'captcha_failed', FrontmailError],
+    [403, 'captcha_not_configured', FrontmailError],
     [404, 'template_not_found', FrontmailError],
     [409, 'idempotency_conflict', FrontmailError],
     [413, 'payload_too_large', FrontmailError],
@@ -308,6 +318,18 @@ describe('sendForm', () => {
     expect(fd.get('cf-turnstile-response')).toBe('tok');
     expect(fd.has('empty')).toBe(false);
     expect(calls[0]!.init.headers['Idempotency-Key']).toBeTruthy();
+  });
+
+  it('adds the turnstile_key form field only when set', async () => {
+    document.body.innerHTML = `<form><input name="a" value="1"></form>`;
+    const { fetch, calls } = mockFetch(accepted());
+    const client = createClient({ fetch, publicKey: 'pk' });
+    await settle(client.sendForm('s', 't', document.forms[0]!, { turnstileToken: 'tok', turnstileKey: 'frontmail' }));
+    await settle(client.sendForm('s', 't', document.forms[0]!));
+    const [a, b] = calls.map((c) => c.init.body as FormData);
+    expect(a!.get('cf-turnstile-response')).toBe('tok');
+    expect(a!.get('turnstile_key')).toBe('frontmail');
+    expect(b!.has('turnstile_key')).toBe(false);
   });
 
   it('applies the block list to form fields', async () => {

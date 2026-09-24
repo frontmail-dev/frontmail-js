@@ -39,6 +39,9 @@ npm i @frontmail/svelte
 - `setFrontmail(instance)` / `getFrontmail()` – context helpers (`<FrontmailForm>` reads the context).
 - `use:frontmailForm={{ serviceId?, templateId, frontmail?, turnstileSiteKey?, turnstileOptions?, sendOptions?, resetOnSuccess?, onSuccess?, onError?, onState? }}` –
   submits the form via `sendForm`, mirrors the status in `data-status` and updates the instance stores.
+  `turnstileSiteKey` is **your own** Cloudflare Turnstile site key (create a widget in your Cloudflare
+  account listing your site's hostnames, then enter the site key + secret in the dashboard under
+  Security → Bot protection). Without it, templates requiring Turnstile fail with `captcha_not_configured`.
 - `<FrontmailForm>` – props as above plus any `<form>` attribute; `children` snippet receives
   `{ status, error, result }`.
 

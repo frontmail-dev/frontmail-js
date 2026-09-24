@@ -60,6 +60,10 @@ Put a Turnstile widget inside the form (`<div class="cf-turnstile" data-sitekey=
 script). It adds a hidden `cf-turnstile-response` field which `sendForm` submits. For `send()` pass
 `{ turnstileToken }`.
 
+Use **your own** Turnstile site key: create a widget in your Cloudflare account (listing your site's
+hostnames) and enter its site key + secret in the dashboard under **Security → Bot protection**.
+Templates requiring Turnstile without configured keys fail with `403 captcha_not_configured`.
+
 ## Typed params
 
 Run `npx frontmail types` (package `@frontmail/node`) to generate `frontmail-env.d.ts`; afterwards

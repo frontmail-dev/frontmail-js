@@ -50,6 +50,9 @@ const onSuccess = (r: SendResult) => console.log(r.messageId, r.status);
 - `<FrontmailForm>` props: `serviceId`, `templateId`, `turnstileSiteKey`, `turnstileOptions`,
   `sendOptions`, `resetOnSuccess` (default `true`); emits `success`, `error`, `status`; default slot
   props `{ status, error, result }`. Turnstile loads lazily and resets after each submit.
+  `turnstileSiteKey` is **your own** Cloudflare Turnstile site key (create a widget in your Cloudflare
+  account listing your site's hostnames, then enter the site key + secret in the dashboard under
+  Security → Bot protection). Without it, templates requiring Turnstile fail with `captcha_not_configured`.
 
 ## Errors
 

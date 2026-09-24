@@ -54,6 +54,9 @@ function Subscribe() {
   renders a `<form>` (other props are passed through, `data-status` reflects the status). Children may be
   a render function receiving `{ status, error, result }`. The Turnstile script is loaded lazily and the
   widget is reset after each submit.
+  `turnstileSiteKey` is **your own** Cloudflare Turnstile site key (create a widget in your Cloudflare
+  account listing your site's hostnames, then enter the site key + secret in the dashboard under
+  Security → Bot protection). Without it, templates requiring Turnstile fail with `captcha_not_configured`.
 
 The entry is marked `'use client'` for React Server Components frameworks.
 

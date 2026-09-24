@@ -36,7 +36,8 @@ function Contact() {
   return (
     <View>
       <TextInput value={message} onChangeText={setMessage} multiline />
-      <TurnstileWebView siteKey="0x4AAA…" baseUrl="https://example.com" onToken={setToken} />
+      {/* No key needed – uses Frontmail's shared mobile widget. */}
+      <TurnstileWebView onToken={setToken} />
       <Button
         title="Send"
         disabled={status === 'sending'}
@@ -58,10 +59,16 @@ function Contact() {
 - `useSendEmail(serviceId, templateId)` → `{ send(params, options?), getStatus(), status, error, result, reset }`.
   `status`: `idle → sending → sent | held | error`. `send` resolves with the result or `undefined` on
   error – it never rejects. `getStatus()` reads the delivery status of the last accepted message.
-- `<TurnstileWebView siteKey baseUrl onToken onError? onExpire? theme? size? action? language? style?>` –
-  renders the Turnstile widget in `react-native-webview` with `baseUrl` as the page URL. **The
-  hostname of `baseUrl` must be in the site key's allowed hostnames** (Cloudflare dashboard →
-  Turnstile → widget → Hostnames). Tokens are single use: call `ref.current.reset()` after a send.
+- `<TurnstileWebView onToken siteKey? baseUrl? apiUrl? onError? onExpire? theme? size? action? language? style?>` –
+  renders the Turnstile widget in `react-native-webview` (inline HTML with `baseUrl` as the page URL).
+  **No key is needed by default**: without `siteKey` it uses Frontmail's shared mobile widget (site key
+  and `baseUrl` from `GET <apiUrl>/v1/public-config`, cached; `apiUrl` defaults to the provider's) and
+  renders nothing until that is loaded. To use your own widget pass `siteKey` **and** `baseUrl` – its
+  hostname must be one of your widget's allowed hostnames (Cloudflare dashboard → Turnstile → widget →
+  Hostnames) and the secret must be configured in the dashboard (Security → Bot protection); tokens from
+  it are sent with `turnstileKey: 'org'` automatically. Tokens are single use: call
+  `ref.current.reset()` after a send (after a failed config load, `reset()` retries it).
+- `getPublicConfig(apiUrl?)` – the cached public configuration used by `<TurnstileWebView>`.
 - `asyncStorageProvider(AsyncStorage)`, `memoryStorageProvider()`, `defaultStorageProvider()` –
   storage for `limitRate`. The default uses AsyncStorage when installed, otherwise memory (with a
   development warning).

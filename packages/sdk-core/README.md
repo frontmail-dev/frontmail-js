@@ -34,7 +34,8 @@ await client.getStatus(messageId, { token: statusToken });
 | `fetch` | `globalThis.fetch` | custom fetch |
 | `clientName` | – | `X-Frontmail-Client` header value |
 
-Per-call `SendOptions` accept the same guards plus `idempotencyKey`, `turnstileToken`, `attachments`
+Per-call `SendOptions` accept the same guards plus `idempotencyKey`, `turnstileToken`, `turnstileKey`
+(`'org' | 'frontmail'` – which secret verifies the token of a request without `Origin`, i.e. native apps), `attachments`
 (`{ filename, contentType, contentBase64 }` or `{ uploadId }`) and `signal`.
 
 ## Reliability
@@ -68,7 +69,9 @@ Error codes are documented at https://docs.frontmail.dev/reference/errors/.
 - `loadTurnstile()`, `renderTurnstile(el, { sitekey })`, `getTurnstileToken(siteKey | formOrContainer)` –
   lazily loads `https://challenges.cloudflare.com/turnstile/v0/api.js`. Inside a form the widget adds
   a hidden `cf-turnstile-response` input that `sendForm` submits automatically; for `send()` pass
-  `{ turnstileToken }`.
+  `{ turnstileToken }`. Web forms use your own site key (dashboard → Security → Bot protection).
+- `getPublicConfig(apiUrl?, fetch?)` → `{ turnstile: { mobileSiteKey, mobileBaseUrl } }` from
+  `GET /v1/public-config`, cached per API URL (failures are not cached).
 - `blockHeadless`, `blockList`, `limitRate`, `isHeadlessBrowser`, `uuid`, `backoffDelay`, `parseRetryAfter`.
 
 ## Typed params

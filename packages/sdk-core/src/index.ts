@@ -16,6 +16,8 @@ export {
 export type { ApiErrorCode, ClientErrorCode, ErrorCode, FrontmailErrorInit } from './errors';
 export { TURNSTILE_FIELD, formData, formToParams, resolveForm } from './form';
 export type { FormParams } from './form';
+export { _resetPublicConfigCache, getPublicConfig } from './public-config';
+export type { PublicConfig } from './public-config';
 export { blockHeadless, blockList, isHeadlessBrowser, limitRate, localStorageProvider } from './guards';
 export {
   TURNSTILE_SCRIPT_URL,

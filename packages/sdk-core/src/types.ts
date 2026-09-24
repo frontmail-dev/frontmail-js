@@ -81,6 +81,9 @@ export type AttachmentInput =
   | { filename: string; contentType: string; contentBase64: string }
   | { uploadId: string };
 
+/** Turnstile secret selector sent as `turnstile_key`. */
+export type TurnstileKey = 'org' | 'frontmail';
+
 export interface SendOptions extends GuardOptions {
   publicKey?: string;
   privateKey?: string;
@@ -88,6 +91,13 @@ export interface SendOptions extends GuardOptions {
   idempotencyKey?: string;
   /** Cloudflare Turnstile token (`sendForm` also reads the `cf-turnstile-response` field). */
   turnstileToken?: string;
+  /**
+   * Which Turnstile secret verifies `turnstileToken` for requests without `Origin`/`Referer` (native
+   * apps): `'frontmail'` (default there) = Frontmail's shared mobile widget, `'org'` = your own site
+   * key configured in the dashboard. Browser requests are always verified with your own key.
+   * `@frontmail/react-native` sets `'org'` automatically for tokens from a custom `siteKey`.
+   */
+  turnstileKey?: TurnstileKey;
   attachments?: AttachmentInput[];
   signal?: AbortSignal;
 }

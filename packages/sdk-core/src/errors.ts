@@ -15,6 +15,7 @@ export type ApiErrorCode =
   | 'origin_not_allowed'
   | 'captcha_required'
   | 'captcha_failed'
+  | 'captcha_not_configured'
   | 'headless_blocked'
   | 'recipient_blocked'
   | 'private_key_required'
@@ -150,6 +151,7 @@ export const ERROR_STATUS: Record<ApiErrorCode, number> = {
   origin_not_allowed: 403,
   captcha_required: 403,
   captcha_failed: 403,
+  captcha_not_configured: 403,
   headless_blocked: 403,
   recipient_blocked: 403,
   private_key_required: 403,

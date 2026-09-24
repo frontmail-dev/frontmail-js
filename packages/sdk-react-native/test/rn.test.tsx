@@ -15,7 +15,9 @@ import {
   uuid,
 } from '../src';
 import type { FrontmailError, FrontmailOptions, SendResult, TurnstileWebViewHandle } from '../src';
+import { _resetPublicConfigCache } from '@frontmail/sdk-core';
 import { optional } from '../src/optional';
+import { _resetOrgTurnstileTokens, markOrgTurnstileToken, withTurnstileKey } from '../src/turnstile-key';
 import { accepted, apiError, jsonResponse } from './helpers';
 import { createWebViewStub } from './stubs/webview';
 
@@ -302,5 +304,143 @@ describe('<TurnstileWebView>', () => {
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
     const init = vi.mocked(fetch).mock.calls[0]![1] as RequestInit;
     expect(JSON.parse(init.body as string)).toMatchObject({ turnstile_token: 'tt' });
+  });
+});
+
+describe('<TurnstileWebView> with the shared Frontmail key', () => {
+  const CONFIG = { turnstile: { mobileSiteKey: '0xMOBILE', mobileBaseUrl: 'https://mobile.frontmail.test' } };
+  afterEach(() => {
+    _resetPublicConfigCache();
+    _resetOrgTurnstileTokens();
+  });
+
+  const router = (config: unknown) =>
+    vi.fn(async (url: string) => (url.endsWith('/v1/public-config') ? jsonResponse(200, config) : accepted())) as unknown as typeof globalThis.fetch &
+      ReturnType<typeof vi.fn>;
+
+  it('loads the key from the provider apiUrl and sends the token without turnstile_key', async () => {
+    const wv = createWebViewStub();
+    const fetch = router(CONFIG);
+    function Screen() {
+      const hook = useSendEmail('svc', 'tpl');
+      return <TurnstileWebView WebViewComponent={wv.WebView} onToken={(token) => void hook.send({}, { turnstileToken: token })} />;
+    }
+    const { container } = render(
+      <FrontmailProvider options={{ publicKey: 'pk', apiUrl: 'https://api.test', fetch }}>
+        <Screen />
+      </FrontmailProvider>,
+    );
+    expect(container.innerHTML).toBe('');
+    await waitFor(() => expect(wv.state.last).toBeDefined());
+    expect(fetch.mock.calls[0]![0]).toBe('https://api.test/v1/public-config');
+    const props = wv.state.last!.props as { source: { html: string; baseUrl: string } };
+    expect(props.source.baseUrl).toBe('https://mobile.frontmail.test');
+    expect(props.source.html).toContain('"sitekey":"0xMOBILE"');
+
+    await act(async () => wv.post({ source: 'frontmail-turnstile', type: 'token', token: 'shared-tok' }));
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    const body = JSON.parse((fetch.mock.calls[1]![1] as RequestInit).body as string);
+    expect(body.turnstile_token).toBe('shared-tok');
+    expect(body).not.toHaveProperty('turnstile_key');
+  });
+
+  it('uses the apiUrl prop outside a provider and caches the config', async () => {
+    const fetch = router(CONFIG);
+    vi.stubGlobal('fetch', fetch);
+    const a = createWebViewStub();
+    const b = createWebViewStub();
+    render(
+      <>
+        <TurnstileWebView apiUrl="https://api.other" WebViewComponent={a.WebView} onToken={() => {}} />
+        <TurnstileWebView apiUrl="https://api.other" WebViewComponent={b.WebView} onToken={() => {}} />
+      </>,
+    );
+    await waitFor(() => expect(a.state.last && b.state.last).toBeTruthy());
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch.mock.calls[0]![0]).toBe('https://api.other/v1/public-config');
+  });
+
+  it('reports an error when the API has no shared key and retries on reset()', async () => {
+    const fetch = vi.fn(async () => jsonResponse(200, { turnstile: { mobileSiteKey: null, mobileBaseUrl: null } })) as unknown as typeof globalThis.fetch &
+      ReturnType<typeof vi.fn>;
+    vi.stubGlobal('fetch', fetch);
+    const wv = createWebViewStub();
+    const onError = vi.fn();
+    const ref = createRef<TurnstileWebViewHandle>();
+    const { container } = render(<TurnstileWebView ref={ref} WebViewComponent={wv.WebView} onToken={() => {}} onError={onError} />);
+    await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+    expect(onError.mock.calls[0]![0]).toMatchObject({ code: 'captcha_failed', details: { reason: 'not_configured' } });
+    expect(container.innerHTML).toBe('');
+    expect(fetch.mock.calls[0]![0]).toBe('https://api.frontmail.dev/v1/public-config');
+
+    fetch.mockImplementation(async () => jsonResponse(200, CONFIG));
+    _resetPublicConfigCache();
+    act(() => ref.current!.reset());
+    await waitFor(() => expect(wv.state.last).toBeDefined());
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports a failed config request', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => apiError(503, 'service_unavailable')));
+    const onError = vi.fn();
+    render(<TurnstileWebView WebViewComponent={createWebViewStub().WebView} onToken={() => {}} onError={onError} />);
+    await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+    expect(onError.mock.calls[0]![0]).toMatchObject({ code: 'service_unavailable', status: 503 });
+  });
+
+  it('requires baseUrl with a custom siteKey', async () => {
+    const onError = vi.fn();
+    const fetch = vi.fn();
+    vi.stubGlobal('fetch', fetch);
+    const { container } = render(<TurnstileWebView siteKey="0xOWN" WebViewComponent={createWebViewStub().WebView} onToken={() => {}} onError={onError} />);
+    await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+    expect(onError.mock.calls[0]![0]).toMatchObject({ code: 'captcha_failed', details: { reason: 'missing_base_url' } });
+    expect(container.innerHTML).toBe('');
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('sends tokens from a custom siteKey with turnstile_key "org"', async () => {
+    const wv = createWebViewStub();
+    const fetch = router(CONFIG);
+    let hook!: ReturnType<typeof useSendEmail>;
+    let client!: ReturnType<typeof useFrontmail>;
+    const tokens: string[] = [];
+    function Screen() {
+      hook = useSendEmail('svc', 'tpl');
+      client = useFrontmail();
+      return <TurnstileWebView siteKey="0xOWN" baseUrl="https://example.com" WebViewComponent={wv.WebView} onToken={(t) => tokens.push(t)} />;
+    }
+    render(
+      <FrontmailProvider options={{ publicKey: 'pk', fetch }}>
+        <Screen />
+      </FrontmailProvider>,
+    );
+    expect((wv.state.last!.props as { source: { baseUrl: string } }).source.baseUrl).toBe('https://example.com');
+    await act(async () => wv.post({ source: 'frontmail-turnstile', type: 'token', token: 'own-1' }));
+    await act(async () => wv.post({ source: 'frontmail-turnstile', type: 'token', token: 'own-2' }));
+    expect(tokens).toEqual(['own-1', 'own-2']);
+
+    await act(async () => void (await hook.send({}, { turnstileToken: 'own-1' })));
+    await act(async () => void (await client.send('svc', 'tpl', {}, { turnstileToken: 'own-2' })));
+    await act(async () => void (await hook.send({}, { turnstileToken: 'own-1', turnstileKey: 'frontmail' })));
+    await act(async () => void (await hook.send({}, { turnstileToken: 'unknown' })));
+    const bodies = fetch.mock.calls.map((c) => JSON.parse((c[1] as RequestInit).body as string));
+    expect(bodies.map((b) => b.turnstile_key)).toEqual(['org', 'org', 'frontmail', undefined]);
+    // A custom key never triggers the public-config request.
+    expect(fetch.mock.calls.some((c) => String(c[0]).includes('public-config'))).toBe(false);
+  });
+});
+
+describe('custom-key token registry', () => {
+  afterEach(() => _resetOrgTurnstileTokens());
+  it('is bounded and leaves other options untouched', () => {
+    expect(withTurnstileKey(undefined)).toBeUndefined();
+    const plain = { turnstileToken: 't0' };
+    expect(withTurnstileKey(plain)).toBe(plain);
+    for (let i = 0; i < 40; i++) markOrgTurnstileToken('t' + i);
+    expect(withTurnstileKey({ turnstileToken: 't0' })?.turnstileKey).toBeUndefined();
+    expect(withTurnstileKey({ turnstileToken: 't39' })?.turnstileKey).toBe('org');
+    expect(withTurnstileKey({ turnstileToken: 't8' })?.turnstileKey).toBe('org');
+    expect(withTurnstileKey({ turnstileToken: 't7' })?.turnstileKey).toBeUndefined();
   });
 });

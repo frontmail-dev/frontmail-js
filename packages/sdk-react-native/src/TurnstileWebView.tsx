@@ -1,20 +1,33 @@
-import { FrontmailError } from '@frontmail/sdk-core';
-import { createElement, forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
+import { FrontmailError, getPublicConfig, isFrontmailError } from '@frontmail/sdk-core';
+import { createElement, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import type { ComponentType } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
+import { useOptionalFrontmail } from './context';
 import { devWarn, optional } from './optional';
+import { markOrgTurnstileToken } from './turnstile-key';
 
 export const TURNSTILE_MESSAGE_SOURCE = 'frontmail-turnstile';
 
 export interface TurnstileWebViewProps {
-  /** Cloudflare Turnstile site key. */
-  siteKey: string;
   /**
-   * Page URL the widget pretends to run on, e.g. `https://example.com`. Its hostname must be listed
-   * in the site key's allowed hostnames in the Cloudflare dashboard, otherwise Turnstile fails with
-   * error 110200.
+   * Your own Cloudflare Turnstile site key. Optional: by default the widget uses Frontmail's shared
+   * mobile key (read once from `GET <apiUrl>/v1/public-config` and cached). Tokens from your own key
+   * are sent with `turnstileKey: 'org'` automatically, so the API verifies them with the secret
+   * configured in the dashboard (Security → Bot protection).
    */
-  baseUrl: string;
+  siteKey?: string;
+  /**
+   * Page URL the widget pretends to run on (the page is inline HTML – no DNS or hosting needed).
+   * With the shared key it defaults to Frontmail's mobile hostname (`https://mobile.frontmail.dev`).
+   * Required with your own `siteKey`: its hostname must be one of YOUR widget's allowed hostnames in
+   * the Cloudflare dashboard (e.g. `https://example.com`), otherwise Turnstile fails with 110200.
+   */
+  baseUrl?: string;
+  /**
+   * API URL used to load the shared key when `siteKey` is omitted. Defaults to the `apiUrl` of the
+   * surrounding `<FrontmailProvider>`, then `https://api.frontmail.dev`.
+   */
+  apiUrl?: string;
   /** Called with a fresh token (single use – pass it to `send(params, { turnstileToken })`). */
   onToken: (token: string) => void;
   onError?: (error: FrontmailError) => void;
@@ -51,7 +64,9 @@ const js = (v: unknown) =>
     .replace(/\u2029/g, '\\u2029');
 
 /** HTML page that renders the widget and posts `{ source, type, token | code }` to React Native. */
-export function turnstileHtml(o: Pick<TurnstileWebViewProps, 'siteKey' | 'theme' | 'size' | 'action' | 'language'>): string {
+export function turnstileHtml(
+  o: { siteKey: string } & Pick<TurnstileWebViewProps, 'theme' | 'size' | 'action' | 'language'>,
+): string {
   const options = {
     sitekey: o.siteKey,
     theme: o.theme ?? 'auto',
@@ -76,19 +91,75 @@ window.fmWidget=turnstile.render('#w',o);}
 
 const SIZES = { normal: { width: 300, height: 70 }, flexible: { width: '100%', height: 70 }, compact: { width: 150, height: 140 } } as const;
 
+interface Widget {
+  siteKey: string;
+  baseUrl: string;
+}
+
 /**
  * Cloudflare Turnstile for React Native: renders the widget inside `react-native-webview` (optional
  * peer dependency, loaded lazily) with `baseUrl` as the page URL, and reports the token via `onToken`.
+ * Without `siteKey` it uses Frontmail's shared mobile key and renders nothing until that is loaded.
  */
 export const TurnstileWebView = forwardRef<TurnstileWebViewHandle, TurnstileWebViewProps>(function TurnstileWebView(
-  { siteKey, baseUrl, onToken, onError, onExpire, theme, size, action, language, style, webViewProps, WebViewComponent },
+  { siteKey, baseUrl, apiUrl, onToken, onError, onExpire, theme, size, action, language, style, webViewProps, WebViewComponent },
   ref,
 ) {
   const webView = useRef<WebViewRef | null>(null);
   const callbacks = useRef({ onToken, onError, onExpire });
   callbacks.current = { onToken, onError, onExpire };
   const Component = useMemo(() => WebViewComponent ?? optional.webView()?.WebView ?? null, [WebViewComponent]);
-  const html = useMemo(() => turnstileHtml({ siteKey, theme, size, action, language }), [siteKey, theme, size, action, language]);
+  const client = useOptionalFrontmail();
+  const configUrl = apiUrl ?? client?.options.apiUrl;
+  const configFetch = client?.options.fetch;
+  const [shared, setShared] = useState<Widget | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const failed = useRef(false);
+
+  useEffect(() => {
+    if (siteKey || !Component) return;
+    let active = true;
+    failed.current = false;
+    setShared(null);
+    getPublicConfig(configUrl, configFetch).then(
+      ({ turnstile: t }) => {
+        if (!active) return;
+        if (t.mobileSiteKey && (baseUrl || t.mobileBaseUrl)) setShared({ siteKey: t.mobileSiteKey, baseUrl: baseUrl || t.mobileBaseUrl! });
+        else {
+          failed.current = true;
+          callbacks.current.onError?.(
+            new FrontmailError('captcha_failed', "This API has no shared mobile Turnstile key – pass your own siteKey and baseUrl.", {
+              details: { reason: 'not_configured' },
+            }),
+          );
+        }
+      },
+      (e: unknown) => {
+        if (!active) return;
+        failed.current = true;
+        callbacks.current.onError?.(
+          isFrontmailError(e) ? e : new FrontmailError('network_error', 'Failed to load the Turnstile configuration.', { cause: e }),
+        );
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [siteKey, baseUrl, configUrl, configFetch, Component, attempt]);
+
+  const widget: Widget | null = siteKey ? (baseUrl ? { siteKey, baseUrl } : null) : shared;
+  const widgetKey = widget?.siteKey;
+  const html = useMemo(
+    () => (widgetKey ? turnstileHtml({ siteKey: widgetKey, theme, size, action, language }) : ''),
+    [widgetKey, theme, size, action, language],
+  );
+
+  useEffect(() => {
+    if (!siteKey || baseUrl) return;
+    const message = '<TurnstileWebView> needs baseUrl (one of your widget\'s hostnames) when you pass your own siteKey.';
+    devWarn(message);
+    callbacks.current.onError?.(new FrontmailError('captcha_failed', message, { details: { reason: 'missing_base_url' } }));
+  }, [siteKey, baseUrl]);
 
   useEffect(() => {
     if (Component) return;
@@ -99,11 +170,14 @@ export const TurnstileWebView = forwardRef<TurnstileWebViewHandle, TurnstileWebV
 
   useImperativeHandle(ref, () => ({
     reset() {
-      webView.current?.injectJavaScript?.('window.turnstile&&window.turnstile.reset(window.fmWidget);true;');
+      // A failed shared-key lookup is retried; otherwise the widget itself is reset.
+      if (failed.current) setAttempt((a) => a + 1);
+      else webView.current?.injectJavaScript?.('window.turnstile&&window.turnstile.reset(window.fmWidget);true;');
     },
   }));
 
-  if (!Component) return null;
+  if (!Component || !widget) return null;
+  const custom = !!siteKey;
 
   const onMessage = (event: { nativeEvent?: { data?: string } }) => {
     let m: { source?: string; type?: string; token?: string; code?: string };
@@ -114,7 +188,10 @@ export const TurnstileWebView = forwardRef<TurnstileWebViewHandle, TurnstileWebV
     }
     if (!m || m.source !== TURNSTILE_MESSAGE_SOURCE) return;
     const cb = callbacks.current;
-    if (m.type == 'token' && m.token) cb.onToken(m.token);
+    if (m.type == 'token' && m.token) {
+      if (custom) markOrgTurnstileToken(m.token);
+      cb.onToken(m.token);
+    }
     else if (m.type == 'expired') cb.onExpire?.();
     else if (m.type == 'error') cb.onError?.(new FrontmailError('captcha_failed', 'Turnstile error ' + (m.code ?? ''), { details: { code: m.code } }));
   };
@@ -122,7 +199,7 @@ export const TurnstileWebView = forwardRef<TurnstileWebViewHandle, TurnstileWebV
 
   return createElement(Component, {
     ref: webView,
-    source: { html, baseUrl },
+    source: { html, baseUrl: widget.baseUrl },
     originWhitelist: ['*'],
     javaScriptEnabled: true,
     domStorageEnabled: true,
