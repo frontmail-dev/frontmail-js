@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "Frontmail example",
+    "slug": "frontmail-example",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": { "bundleIdentifier": "dev.frontmail.example" },
+    "android": { "package": "dev.frontmail.example" }
+  }
+}

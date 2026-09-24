@@ -352,4 +352,25 @@ describe('getStatus / request', () => {
     await settle(createClient({ fetch }).request('/v1/history', { query: { limit: 10, cursor: undefined, status: null } }));
     expect(calls[0]!.url).toBe('https://api.frontmail.dev/v1/history?limit=10');
   });
+
+  it('works in a React Native-like runtime (no URLSearchParams, FormData, crypto, document)', async () => {
+    vi.stubGlobal('URLSearchParams', undefined);
+    vi.stubGlobal('FormData', undefined);
+    vi.stubGlobal('crypto', undefined);
+    vi.stubGlobal('document', undefined);
+    vi.stubGlobal('localStorage', undefined);
+    try {
+      const { fetch, calls } = mockFetch(jsonResponse(200, { message_id: 'm', status: 'sent', events: [] }), accepted());
+      const client = createClient({ fetch, publicKey: 'pk', limitRate: { throttle: 1000 } });
+      await settle(client.getStatus('m', { token: 'a b&c' }));
+      expect(calls[0]!.url).toBe('https://api.frontmail.dev/v1/messages/m?token=a%20b%26c');
+      const { value, error } = await settle(client.send('svc', 'tpl', { name: 'Jan' }));
+      expect(error).toBeUndefined();
+      expect(value?.status).toBe('queued');
+      expect(calls[1]!.init.headers['Idempotency-Key']).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+      expect(JSON.parse(calls[1]!.init.body as string)).toMatchObject({ template_id: 'tpl', template_params: { name: 'Jan' } });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });

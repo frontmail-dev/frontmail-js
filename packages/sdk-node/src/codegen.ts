@@ -36,6 +36,7 @@ export const SDK_MODULES = [
   '@frontmail/react',
   '@frontmail/vue',
   '@frontmail/svelte',
+  '@frontmail/react-native',
   '@frontmail/node',
 ] as const;
 

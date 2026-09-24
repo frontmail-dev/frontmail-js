@@ -23,10 +23,13 @@ export function createClient(options: ClientOptions = {}): Client {
     const base = (options.apiUrl || DEFAULT_API_URL).replace(/\/+$/, '');
     let url = base + path;
     if (o.query) {
-      const q = new URLSearchParams();
-      for (const k in o.query) if (o.query[k] != null) q.set(k, String(o.query[k]));
-      const qs = q.toString();
-      if (qs) url += '?' + qs;
+      // No URLSearchParams: React Native's implementation is incomplete.
+      const qs: string[] = [];
+      for (const k in o.query) {
+        const v = o.query[k];
+        if (v != null) qs.push(encodeURIComponent(k) + '=' + encodeURIComponent(String(v)));
+      }
+      if (qs.length) url += '?' + qs.join('&');
     }
     const headers: Record<string, string> = { ...o.headers };
     if (options.clientName) headers['X-Frontmail-Client'] = options.clientName;
@@ -36,7 +39,7 @@ export function createClient(options: ClientOptions = {}): Client {
     else if (publicKey) headers['X-Frontmail-Public-Key'] = publicKey;
     if (o.idempotencyKey) headers['Idempotency-Key'] = o.idempotencyKey;
     let body = o.body as BodyInit | undefined;
-    if (body != null && !(body instanceof FormData)) {
+    if (body != null && !(typeof FormData != 'undefined' && body instanceof FormData)) {
       headers['Content-Type'] = 'application/json';
       body = JSON.stringify(body);
     }

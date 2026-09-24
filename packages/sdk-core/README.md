@@ -1,8 +1,9 @@
 # @frontmail/sdk-core
 
-Zero-dependency, isomorphic core used by every Frontmail SDK (`@frontmail/browser`, `react`, `vue`,
-`svelte`, `node`, `emailjs-compat`). You normally install one of those instead – use the core directly
-only when building your own integration.
+Zero-dependency, isomorphic core used by every Frontmail SDK (`@frontmail/browser`, `react`,
+`react-native`, `vue`, `svelte`, `node`, `emailjs-compat`). You normally install one of those instead –
+use the core directly only when building your own integration. Runs in browsers, Node.js, workers and
+React Native (Hermes).
 
 ```sh
 npm i @frontmail/sdk-core
