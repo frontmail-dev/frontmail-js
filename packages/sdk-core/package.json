@@ -1,0 +1,40 @@
+{
+  "name": "@frontmail/sdk-core",
+  "version": "0.1.0",
+  "description": "Isomorphic zero-dependency core of the Frontmail SDKs: HTTP client with retries, idempotency keys, typed errors, Turnstile and client-side guards.",
+  "private": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsdown --config-loader native",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "tsdown": "^0.23.0"
+  },
+  "license": "MIT",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/frontmail-dev/frontmail-js.git",
+    "directory": "packages/sdk-core"
+  },
+  "homepage": "https://docs.frontmail.dev/sdks/retries-and-idempotency/",
+  "bugs": {
+    "url": "https://github.com/frontmail-dev/frontmail-js/issues"
+  }
+}

@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.svelte-kit/
+.turbo/
+coverage/
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+.vite/
+.pnpm-store/

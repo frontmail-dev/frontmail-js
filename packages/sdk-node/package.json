@@ -1,0 +1,51 @@
+{
+  "name": "@frontmail/node",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsdown --config-loader native",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@frontmail/sdk-core": "workspace:*"
+  },
+  "devDependencies": {
+    "tsdown": "^0.23.0"
+  },
+  "license": "MIT",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/frontmail-dev/frontmail-js.git",
+    "directory": "packages/sdk-node"
+  },
+  "homepage": "https://docs.frontmail.dev/sdks/node/",
+  "bugs": {
+    "url": "https://github.com/frontmail-dev/frontmail-js/issues"
+  },
+  "bin": {
+    "frontmail": "./dist/cli.js"
+  },
+  "description": "Frontmail server-side SDK (private key): send, batch, history, message status + `frontmail types` CLI.",
+  "types": "./dist/index.d.ts",
+  "engines": {
+    "node": ">=20"
+  }
+}

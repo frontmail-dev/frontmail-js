@@ -1,0 +1,59 @@
+{
+  "name": "@frontmail/svelte",
+  "version": "0.1.0",
+  "description": "Svelte 5 helpers for Frontmail: createFrontmail stores, use:frontmailForm action and FrontmailForm component.",
+  "private": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "svelte": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "node scripts/version.mjs && svelte-package -i src -o dist && node -e \"require('fs').rmSync('.svelte-kit',{recursive:true,force:true})\"",
+    "typecheck": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@frontmail/sdk-core": "workspace:*"
+  },
+  "peerDependencies": {
+    "svelte": "^5.0.0"
+  },
+  "devDependencies": {
+    "tsdown": "^0.23.0",
+    "svelte": "^5.57.1",
+    "@sveltejs/package": "^2.5.8",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "svelte-check": "^4.7.6",
+    "@testing-library/svelte": "^5.4.2",
+    "jsdom": "^30.1.1"
+  },
+  "license": "MIT",
+  "files": [
+    "dist",
+    "!dist/**/*.test.*",
+    "README.md"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/frontmail-dev/frontmail-js.git",
+    "directory": "packages/sdk-svelte"
+  },
+  "homepage": "https://docs.frontmail.dev/sdks/svelte/",
+  "bugs": {
+    "url": "https://github.com/frontmail-dev/frontmail-js/issues"
+  },
+  "svelte": "./dist/index.js",
+  "types": "./dist/index.d.ts"
+}

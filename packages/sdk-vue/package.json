@@ -1,0 +1,51 @@
+{
+  "name": "@frontmail/vue",
+  "version": "0.1.0",
+  "description": "Vue 3 plugin, composables and <FrontmailForm> for Frontmail.",
+  "private": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsdown --config-loader native",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@frontmail/sdk-core": "workspace:*"
+  },
+  "peerDependencies": {
+    "vue": "^3.4.0"
+  },
+  "devDependencies": {
+    "tsdown": "^0.23.0",
+    "vue": "^3.5.43",
+    "@vitejs/plugin-vue": "^6.0.9",
+    "vue-tsc": "^3.3.11",
+    "@testing-library/vue": "^8.1.0",
+    "jsdom": "^30.1.1"
+  },
+  "license": "MIT",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/frontmail-dev/frontmail-js.git",
+    "directory": "packages/sdk-vue"
+  },
+  "homepage": "https://docs.frontmail.dev/sdks/vue/",
+  "bugs": {
+    "url": "https://github.com/frontmail-dev/frontmail-js/issues"
+  }
+}

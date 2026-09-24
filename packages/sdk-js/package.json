@@ -1,0 +1,57 @@
+{
+  "name": "@frontmail/browser",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./umd": "./dist/frontmail.umd.js",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsdown --config-loader native && node scripts/size.mjs",
+    "size": "node scripts/size.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@frontmail/sdk-core": "workspace:*",
+    "tsdown": "^0.23.0",
+    "jsdom": "^30.1.1"
+  },
+  "license": "MIT",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/frontmail-dev/frontmail-js.git",
+    "directory": "packages/sdk-js"
+  },
+  "homepage": "https://docs.frontmail.dev/sdks/browser/",
+  "bugs": {
+    "url": "https://github.com/frontmail-dev/frontmail-js/issues"
+  },
+  "description": "Send emails from the browser with Frontmail – EmailJS-compatible API, retries, typed errors, Turnstile.",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "unpkg": "./dist/frontmail.umd.js",
+  "jsdelivr": "./dist/frontmail.umd.js",
+  "keywords": [
+    "email",
+    "contact-form",
+    "emailjs",
+    "frontmail",
+    "turnstile"
+  ]
+}

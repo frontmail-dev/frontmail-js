@@ -1,0 +1,19 @@
+{
+  "name": "@frontmail/example-vanilla",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "predev": "node scripts/copy-umd.mjs",
+    "dev": "vite",
+    "prebuild": "node scripts/copy-umd.mjs",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@frontmail/browser": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "^8.3.0"
+  }
+}

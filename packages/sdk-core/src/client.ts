@@ -1,0 +1,146 @@
+import { FrontmailError, NetworkError, errorFromResponse } from './errors';
+import { TURNSTILE_FIELD, formData, resolveForm } from './form';
+import { blockHeadless, blockList, limitRate } from './guards';
+import type { Client, ClientOptions, RequestOptions, SendOptions, SendResult } from './types';
+import { backoffDelay, camelize, parseRetryAfter, sleep, uuid } from './utils';
+
+export const DEFAULT_API_URL = 'https://api.frontmail.dev';
+/** 429 responses asking to wait longer than this are not retried. */
+const MAX_RETRY_AFTER_S = 60;
+
+interface RawSendResponse {
+  message_id: string;
+  status: 'queued' | 'held';
+  status_token: string;
+}
+
+/** Creates an isomorphic Frontmail API client (fetch-based, zero dependencies). */
+export function createClient(options: ClientOptions = {}): Client {
+  const request = async <R>(path: string, o: RequestOptions = {}): Promise<R> => {
+    const retry = options.retry === false ? { retries: 0 } : (options.retry ?? {});
+    const retries = retry.retries ?? 3;
+    const fetchFn = options.fetch ?? globalThis.fetch;
+    const base = (options.apiUrl || DEFAULT_API_URL).replace(/\/+$/, '');
+    let url = base + path;
+    if (o.query) {
+      const q = new URLSearchParams();
+      for (const k in o.query) if (o.query[k] != null) q.set(k, String(o.query[k]));
+      const qs = q.toString();
+      if (qs) url += '?' + qs;
+    }
+    const headers: Record<string, string> = { ...o.headers };
+    if (options.clientName) headers['X-Frontmail-Client'] = options.clientName;
+    const privateKey = o.privateKey ?? options.privateKey;
+    const publicKey = o.publicKey ?? options.publicKey;
+    if (privateKey) headers.Authorization = 'Bearer ' + privateKey;
+    else if (publicKey) headers['X-Frontmail-Public-Key'] = publicKey;
+    if (o.idempotencyKey) headers['Idempotency-Key'] = o.idempotencyKey;
+    let body = o.body as BodyInit | undefined;
+    if (body != null && !(body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+      body = JSON.stringify(body);
+    }
+
+    for (let attempt = 0; ; attempt++) {
+      const ctrl = new AbortController();
+      let timedOut = false;
+      const timer = setTimeout(() => ((timedOut = true), ctrl.abort()), options.timeoutMs ?? 15000);
+      const onAbort = () => ctrl.abort();
+      o.signal?.addEventListener('abort', onAbort);
+      let res: Response;
+      let err: FrontmailError | undefined;
+      let wait: number | undefined;
+      try {
+        res = await fetchFn(url, { method: o.method ?? (body ? 'POST' : 'GET'), headers, body, signal: ctrl.signal });
+      } catch (e) {
+        if (o.signal?.aborted) throw new FrontmailError('aborted', 'Request aborted.', { cause: e });
+        res = undefined as never;
+        err = timedOut
+          ? new NetworkError('timeout', 'Request timed out.', { cause: e })
+          : new NetworkError('network_error', 'Network request failed.', { cause: e });
+      } finally {
+        clearTimeout(timer);
+        o.signal?.removeEventListener('abort', onAbort);
+      }
+      if (res) {
+        const data: unknown = await res.json().catch(() => null);
+        if (res.ok) return data as R;
+        const retryAfter = parseRetryAfter(res.headers.get('Retry-After'));
+        err = errorFromResponse(res.status, data, retryAfter);
+        if (res.status < 500 && res.status != 429) throw err;
+        if (retryAfter != null) {
+          if (retryAfter > MAX_RETRY_AFTER_S) throw err;
+          wait = retryAfter * 1000;
+        }
+      }
+      if (attempt >= retries) throw err;
+      await sleep(wait ?? backoffDelay(attempt, retry.baseDelayMs ?? 300, retry.maxDelayMs ?? 10000));
+    }
+  };
+
+  const guarded = async (
+    o: SendOptions,
+    lookup: (name: string) => unknown,
+    run: (idempotencyKey: string) => Promise<RawSendResponse>,
+  ): Promise<SendResult> => {
+    blockHeadless(o.blockHeadless ?? options.blockHeadless);
+    blockList(o.blockList ?? options.blockList, lookup);
+    const record = await limitRate(o.limitRate ?? options.limitRate, o.storageProvider ?? options.storageProvider);
+    const raw = await run(o.idempotencyKey || uuid());
+    if (!raw || !raw.message_id) throw new FrontmailError('invalid_response', 'Unexpected API response.');
+    await record();
+    return { messageId: raw.message_id, status: raw.status, statusToken: raw.status_token, status_code: 202, text: 'OK' };
+  };
+
+  return {
+    options,
+    request,
+    send(serviceId, templateId, params, o = {}) {
+      const p = (params ?? {}) as Record<string, unknown>;
+      const publicKey = o.publicKey ?? options.publicKey;
+      return guarded(o, (n) => p[n], (idempotencyKey) =>
+        request<RawSendResponse>(options.paths?.send ?? '/v1/send', {
+          body: {
+            service_id: serviceId || undefined,
+            template_id: templateId,
+            user_id: publicKey,
+            template_params: p,
+            turnstile_token: o.turnstileToken,
+            attachments: o.attachments?.map((a) =>
+              'uploadId' in a
+                ? { upload_id: a.uploadId }
+                : { filename: a.filename, content_type: a.contentType, content_base64: a.contentBase64 },
+            ),
+          },
+          idempotencyKey,
+          publicKey: o.publicKey,
+          privateKey: o.privateKey,
+          signal: o.signal,
+        }),
+      );
+    },
+    async sendForm(serviceId, templateId, form, o = {}) {
+      const fd = formData(resolveForm(form));
+      const publicKey = o.publicKey ?? options.publicKey;
+      if (serviceId) fd.set('service_id', serviceId);
+      fd.set('template_id', templateId);
+      if (publicKey) fd.set('user_id', publicKey);
+      if (o.turnstileToken) fd.set(TURNSTILE_FIELD, o.turnstileToken);
+      return guarded(o, (n) => fd.get(n), (idempotencyKey) =>
+        request<RawSendResponse>(options.paths?.sendForm ?? '/v1/send-form', {
+          method: 'POST',
+          body: fd,
+          idempotencyKey,
+          publicKey: o.publicKey,
+          privateKey: o.privateKey,
+          signal: o.signal,
+        }),
+      );
+    },
+    async getStatus(messageId, o = {}) {
+      return camelize(
+        await request('/v1/messages/' + encodeURIComponent(messageId), { query: { token: o.token }, signal: o.signal }),
+      );
+    },
+  };
+}

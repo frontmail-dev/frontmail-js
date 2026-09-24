@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Frontmail – vanilla (UMD)</title>
+    <link rel="stylesheet" href="/style.css" />
+    <!-- In production: https://cdn.jsdelivr.net/npm/@frontmail/browser/dist/frontmail.umd.js -->
+    <script src="/frontmail.umd.js"></script>
+  </head>
+  <body>
+    <h1>Contact us (UMD)</h1>
+    <p><a href="/">ESM variant</a></p>
+    <form id="contact-form" data-testid="contact-form">
+      <label>Name <input name="name" data-testid="name" required /></label>
+      <label>Email <input name="email" type="email" data-testid="email" required /></label>
+      <label>Message <textarea name="message" data-testid="message" required></textarea></label>
+      <div id="turnstile"></div>
+      <button type="submit" data-testid="submit">Send</button>
+    </form>
+    <p>Status: <strong id="status" data-testid="status">idle</strong></p>
+    <p id="message-id" data-testid="message-id"></p>
+    <p id="error" data-testid="error" role="alert"></p>
+    <!-- Vite injects env vars into module scripts; the SDK itself is used through window.frontmail. -->
+    <script type="module">
+      import { setupContactForm } from '/src/contact.js';
+      setupContactForm(window.frontmail);
+    </script>
+  </body>
+</html>

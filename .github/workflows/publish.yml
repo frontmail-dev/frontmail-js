@@ -1,0 +1,58 @@
+name: Publish
+
+# Every push to main (= every sync from the monorepo) publishes the package versions that are not
+# on npm yet – nothing happens when the versions did not change. Versions are bumped in the
+# monorepo ("Version packages" PR), never here.
+#
+# Auth: npm Trusted Publishing (OIDC, no token) once it is configured for each package on
+# npmjs.com (repository frontmail-dev/frontmail-js, workflow publish.yml). Before that – npm only
+# allows configuring a trusted publisher for a package that already exists – the first release
+# uses the NPM_TOKEN secret when it is set. Delete the secret afterwards.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish new versions to npm
+    # Never from forks.
+    if: github.repository == 'frontmail-dev/frontmail-js'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write # tags + GitHub releases
+      id-token: write # npm Trusted Publishing + provenance
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Update npm (Trusted Publishing needs npm >= 11.5.1)
+        run: npm install -g npm@^11.5.1
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm build
+      - name: Test
+        run: pnpm test
+      - name: Use NPM_TOKEN (first publish only)
+        if: env.NPM_TOKEN != ''
+        run: |
+          npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+          echo "::notice::Publishing with the NPM_TOKEN secret – configure Trusted Publishing on npmjs.com and delete the secret."
+      - name: Publish versions not yet on npm
+        run: node scripts/publish-new.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}

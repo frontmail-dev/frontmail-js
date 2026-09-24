@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Frontmail – vanilla (ESM)</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <h1>Contact us (ESM)</h1>
+    <p><a href="/umd.html">UMD / &lt;script&gt; variant</a></p>
+    <form id="contact-form" data-testid="contact-form">
+      <label>Name <input name="name" data-testid="name" required /></label>
+      <label>Email <input name="email" type="email" data-testid="email" required /></label>
+      <label>Message <textarea name="message" data-testid="message" required></textarea></label>
+      <div id="turnstile"></div>
+      <button type="submit" data-testid="submit">Send</button>
+    </form>
+    <p>Status: <strong id="status" data-testid="status">idle</strong></p>
+    <p id="message-id" data-testid="message-id"></p>
+    <p id="error" data-testid="error" role="alert"></p>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
