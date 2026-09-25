@@ -15,7 +15,7 @@
     "build": "tsdown --config-loader native && node scripts/size.mjs",
     "size": "node scripts/size.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --testTimeout=30000 --hookTimeout=60000"
   },
   "devDependencies": {
     "@frontmail/sdk-core": "workspace:*",

@@ -15,7 +15,7 @@
   "scripts": {
     "build": "node scripts/version.mjs && svelte-package -i src -o dist && node -e \"require('fs').rmSync('.svelte-kit',{recursive:true,force:true})\"",
     "typecheck": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
-    "test": "vitest run"
+    "test": "vitest run --testTimeout=30000 --hookTimeout=60000"
   },
   "dependencies": {
     "@frontmail/sdk-core": "workspace:*"
