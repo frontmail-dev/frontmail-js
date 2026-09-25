@@ -7,6 +7,13 @@ const LIMIT = 3.5 * 1024;
 const files = ['dist/frontmail.umd.js', 'dist/index.js'];
 let failed = false;
 for (const file of files) {
+  const code = readFileSync(new URL('../' + file, import.meta.url), 'utf8');
+  // sdk-core must be inlined – an external reference means it was not built first (turbo ^build).
+  if (code.includes('@frontmail/sdk-core')) {
+    console.error(`${file}: @frontmail/sdk-core is not bundled – build it first (pnpm turbo run build --filter=@frontmail/browser)`);
+    failed = true;
+    continue;
+  }
   const size = gzipSync(readFileSync(new URL('../' + file, import.meta.url)), { level: 9 }).length;
   const budget = file.includes('umd');
   const over = budget && size > LIMIT;
