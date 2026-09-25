@@ -6,15 +6,32 @@ export function uuid(): string {
   return '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, (d) => (+d ^ (rnd() & (15 >> (+d / 4)))).toString(16));
 }
 
-/** Recursively converts snake_case object keys to camelCase. */
+/** Keys that could change an object's prototype when assigned; never copied from API data. */
+const UNSAFE_KEY = /^(__proto__|constructor|prototype)$/;
+
+/** Recursively converts snake_case object keys to camelCase (skips `__proto__` & co.). */
 export function camelize<T = unknown>(value: unknown): T {
   if (Array.isArray(value)) return value.map(camelize) as T;
   if (value && typeof value == 'object' && Object.getPrototypeOf(value) === Object.prototype) {
     const out: Record<string, unknown> = {};
-    for (const k in value) out[k.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())] = camelize((value as Record<string, unknown>)[k]);
+    for (const k of Object.keys(value)) {
+      const key = k.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+      if (UNSAFE_KEY.test(k) || UNSAFE_KEY.test(key)) continue;
+      out[key] = camelize((value as Record<string, unknown>)[k]);
+    }
     return out as T;
   }
   return value as T;
+}
+
+/**
+ * `true` in a web browser (a `window` and a `document` exist), `false` in Node.js, Deno, Bun,
+ * edge runtimes, Web Workers and React Native.
+ */
+export function isBrowser(): boolean {
+  const g = globalThis as { window?: unknown; document?: unknown; navigator?: { product?: string } };
+  if (g.navigator?.product == 'ReactNative') return false;
+  return typeof g.window != 'undefined' && typeof g.document != 'undefined';
 }
 
 /** Parses a `Retry-After` header (seconds or HTTP date) into seconds. */

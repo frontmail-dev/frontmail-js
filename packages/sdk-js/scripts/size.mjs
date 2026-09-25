@@ -2,7 +2,8 @@
 import { readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 
-const LIMIT = 3 * 1024;
+// 3.5 kB since the private-key guard and form-field filtering (security fixes, 0.2.0).
+const LIMIT = 3.5 * 1024;
 const files = ['dist/frontmail.umd.js', 'dist/index.js'];
 let failed = false;
 for (const file of files) {

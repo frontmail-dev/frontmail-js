@@ -63,6 +63,11 @@ describe('createFrontmail', () => {
     unsub();
   });
 
+  it('refuses a private key in the browser unless explicitly allowed', () => {
+    expect(() => createFrontmail({ privateKey: 'sk_1' })).toThrowError(expect.objectContaining({ code: 'private_key_in_browser' }));
+    expect(createFrontmail({ privateKey: 'sk_1', dangerouslyAllowPrivateKeyInBrowser: true }).client.options.privateKey).toBe('sk_1');
+  });
+
   it('status store: idle → sending → error', async () => {
     const f = deferredFetch();
     const fm = createFrontmail({ publicKey: 'pk', fetch: f.fetch, retry: false });

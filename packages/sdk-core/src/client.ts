@@ -2,9 +2,11 @@ import { FrontmailError, NetworkError, errorFromResponse } from './errors';
 import { TURNSTILE_FIELD, formData, resolveForm } from './form';
 import { blockHeadless, blockList, limitRate } from './guards';
 import type { Client, ClientOptions, RequestOptions, SendOptions, SendResult } from './types';
-import { backoffDelay, camelize, parseRetryAfter, sleep, uuid } from './utils';
+import { backoffDelay, camelize, isBrowser, parseRetryAfter, sleep, uuid } from './utils';
 
 export const DEFAULT_API_URL = 'https://api.frontmail.dev';
+/** Header carrying the `statusToken` returned by `send` when reading a message status. */
+export const STATUS_TOKEN_HEADER = 'X-Frontmail-Status-Token';
 /** 429 responses asking to wait longer than this are not retried. */
 const MAX_RETRY_AFTER_S = 60;
 
@@ -14,8 +16,25 @@ interface RawSendResponse {
   status_token: string;
 }
 
+/**
+ * Throws `private_key_in_browser` when a private key is used in a web browser. A private key
+ * (`sk_…`) bypasses the origin allowlist and CAPTCHA and can read the message history, so it
+ * must never be shipped to a page. `dangerouslyAllowPrivateKeyInBrowser: true` opts out (e.g.
+ * an internal admin tool on a trusted machine); the API additionally rejects private keys sent
+ * with an `Origin` header unless the organization allows it.
+ */
+export function assertPrivateKeyAllowed(privateKey: string | undefined, allow: boolean | undefined): void {
+  if (privateKey && !allow && isBrowser()) {
+    throw new FrontmailError(
+      'private_key_in_browser',
+      'Private keys (sk_…) must not be used in a browser. Use the public key (pk_…).',
+    );
+  }
+}
+
 /** Creates an isomorphic Frontmail API client (fetch-based, zero dependencies). */
 export function createClient(options: ClientOptions = {}): Client {
+  assertPrivateKeyAllowed(options.privateKey, options.dangerouslyAllowPrivateKeyInBrowser);
   const request = async <R>(path: string, o: RequestOptions = {}): Promise<R> => {
     const retry = options.retry === false ? { retries: 0 } : (options.retry ?? {});
     const retries = retry.retries ?? 3;
@@ -34,6 +53,7 @@ export function createClient(options: ClientOptions = {}): Client {
     const headers: Record<string, string> = { ...o.headers };
     if (options.clientName) headers['X-Frontmail-Client'] = options.clientName;
     const privateKey = o.privateKey ?? options.privateKey;
+    assertPrivateKeyAllowed(privateKey, options.dangerouslyAllowPrivateKeyInBrowser);
     const publicKey = o.publicKey ?? options.publicKey;
     if (privateKey) headers.Authorization = 'Bearer ' + privateKey;
     else if (publicKey) headers['X-Frontmail-Public-Key'] = publicKey;
@@ -124,7 +144,7 @@ export function createClient(options: ClientOptions = {}): Client {
       );
     },
     async sendForm(serviceId, templateId, form, o = {}) {
-      const fd = formData(resolveForm(form));
+      const fd = formData(resolveForm(form), o.formFields);
       const publicKey = o.publicKey ?? options.publicKey;
       if (serviceId) fd.set('service_id', serviceId);
       fd.set('template_id', templateId);
@@ -144,7 +164,11 @@ export function createClient(options: ClientOptions = {}): Client {
     },
     async getStatus(messageId, o = {}) {
       return camelize(
-        await request('/v1/messages/' + encodeURIComponent(messageId), { query: { token: o.token }, signal: o.signal }),
+        await request('/v1/messages/' + encodeURIComponent(messageId), {
+          // Header, not `?token=`: query strings end up in access logs, HAR files and error trackers.
+          headers: o.token ? { [STATUS_TOKEN_HEADER]: o.token } : undefined,
+          signal: o.signal,
+        }),
       );
     },
   };

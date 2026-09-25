@@ -4,7 +4,7 @@ export { useSendEmail } from './useSendEmail';
 export type { SendState, SendStatus, UseSendEmail } from './useSendEmail';
 export { asyncStorageProvider, defaultStorageProvider, memoryStorageProvider } from './storage';
 export type { AsyncStorageLike } from './optional';
-export { TurnstileWebView, turnstileHtml } from './TurnstileWebView';
+export { TURNSTILE_ORIGIN, TurnstileWebView, parseTurnstileMessage, shouldStartLoad, turnstileHtml } from './TurnstileWebView';
 export type { TurnstileWebViewHandle, TurnstileWebViewProps } from './TurnstileWebView';
 export {
   AuthError,

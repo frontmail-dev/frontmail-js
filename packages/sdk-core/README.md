@@ -23,7 +23,8 @@ await client.getStatus(messageId, { token: statusToken });
 | Option | Default | Description |
 |---|---|---|
 | `publicKey` | – | `pk_…` for browsers (sent as `user_id` + `X-Frontmail-Public-Key`) |
-| `privateKey` | – | `sk_…`, server only (`Authorization: Bearer`) |
+| `privateKey` | – | `sk_…`, server only (`Authorization: Bearer`); throws `private_key_in_browser` in a browser |
+| `dangerouslyAllowPrivateKeyInBrowser` | `false` | allow `privateKey` in a browser (internal tools only) |
 | `apiUrl` | `https://api.frontmail.dev` | API origin |
 | `retry` | `{ retries: 3, baseDelayMs: 300, maxDelayMs: 10000 }` | `false` disables retries |
 | `timeoutMs` | `15000` | per attempt (AbortController) |
@@ -36,7 +37,18 @@ await client.getStatus(messageId, { token: statusToken });
 
 Per-call `SendOptions` accept the same guards plus `idempotencyKey`, `turnstileToken`, `turnstileKey`
 (`'org' | 'frontmail'` – which secret verifies the token of a request without `Origin`, i.e. native apps), `attachments`
-(`{ filename, contentType, contentBase64 }` or `{ uploadId }`) and `signal`.
+(`{ filename, contentType, contentBase64 }` or `{ uploadId }`), `formFields` (`sendForm` only:
+`{ include?: string[], exclude?: string[] }`) and `signal`.
+
+`sendForm` / `formToParams` never send password inputs, well-known anti-CSRF fields
+(`csrfmiddlewaretoken`, `_token`, `authenticity_token`, `__RequestVerificationToken`, `_csrf`,
+`csrf_token`) or reserved API names (`accessToken`, `privateKey`, `turnstile_key`, …) unless
+listed in `formFields.include` (reserved names never). `getStatus` sends the status token in the
+`X-Frontmail-Status-Token` header.
+
+The guards (`blockHeadless`, `blockList`, `limitRate`) run on the client – they are a convenience
+for honest visitors, not a security control. Server-side equivalents live in the dashboard
+(**Security**: allowed origins, Turnstile, rate limits, block headless, block list).
 
 ## Reliability
 

@@ -10,3 +10,4 @@ coverage/
 !.env.example
 .vite/
 .pnpm-store/
+.sdk-export

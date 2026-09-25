@@ -25,6 +25,16 @@ describe('utils', () => {
       nested: { nextCursor: null },
     });
   });
+  it('camelize never copies prototype-changing keys', () => {
+    const out = camelize<Record<string, unknown>>(
+      JSON.parse('{"__proto__":{"polluted":1},"constructor":{"prototype":{"x":1}},"prototype":2,"ok_key":{"__proto__":{"y":1}}}'),
+    );
+    expect(Object.getPrototypeOf(out)).toBe(Object.prototype);
+    expect(Object.keys(out)).toEqual(['okKey']);
+    expect(Object.getPrototypeOf(out.okKey)).toBe(Object.prototype);
+    expect((out as { polluted?: unknown }).polluted).toBeUndefined();
+    expect(({} as { polluted?: unknown }).polluted).toBeUndefined();
+  });
   it('docsUrlFor', () => {
     expect(docsUrlFor('invalid_template_params')).toBe('https://docs.frontmail.dev/reference/errors/#invalid-template-params');
   });

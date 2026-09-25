@@ -1,6 +1,7 @@
 import { FrontmailError, getPublicConfig, isFrontmailError } from '@frontmail/sdk-core';
 import { createElement, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import type { ComponentType } from 'react';
+import { Linking } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { useOptionalFrontmail } from './context';
 import { devWarn, optional } from './optional';
@@ -41,7 +42,11 @@ export interface TurnstileWebViewProps {
   language?: string;
   /** Style of the WebView. Default: 300 × 70 for `normal`, 150 × 140 for `compact`. */
   style?: StyleProp<ViewStyle>;
-  /** Extra props for the underlying WebView. */
+  /**
+   * Extra props for the underlying WebView (styling, testID, …). `source`, `originWhitelist`,
+   * navigation guards, `onMessage` and the JavaScript/file-access settings are always set by
+   * the component and cannot be overridden.
+   */
   webViewProps?: Record<string, unknown>;
   /** WebView component to use instead of `react-native-webview`'s (custom forks, tests). */
   WebViewComponent?: ComponentType<Record<string, unknown>>;
@@ -87,6 +92,68 @@ window.fmWidget=turnstile.render('#w',o);}
 </script>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=fmRender" async defer onerror="fmPost({type:'error',code:'script_load_failed'})"></script>
 </head><body><div id="w"></div></body></html>`;
+}
+
+/** Origin of the Turnstile widget iframe and script. */
+export const TURNSTILE_ORIGIN = 'https://challenges.cloudflare.com';
+
+/** `scheme://host[:port]` of an absolute URL, lower-cased (no `URL`: React Native's is incomplete). */
+export function originOf(url: string | undefined): string | undefined {
+  const m = /^([a-z][a-z0-9+.-]*:\/\/[^/?#\\]*)/i.exec(url ?? '');
+  return m ? m[1]!.toLowerCase() : undefined;
+}
+
+const MESSAGE_TYPES = new Set(['token', 'expired', 'error']);
+const MAX_TOKEN_LENGTH = 4096;
+
+interface TurnstileMessage {
+  type: 'token' | 'expired' | 'error';
+  token?: string;
+  code?: string;
+}
+
+/** Parses a bridge message; `null` unless it has exactly the shape the inline page posts. */
+export function parseTurnstileMessage(data: unknown): TurnstileMessage | null {
+  let m: unknown;
+  try {
+    m = JSON.parse(typeof data == 'string' ? data : '');
+  } catch {
+    return null;
+  }
+  if (!m || typeof m != 'object' || Array.isArray(m)) return null;
+  const { source, type, token, code } = m as Record<string, unknown>;
+  if (source !== TURNSTILE_MESSAGE_SOURCE || typeof type != 'string' || !MESSAGE_TYPES.has(type)) return null;
+  if (type == 'token' && (typeof token != 'string' || !token || token.length > MAX_TOKEN_LENGTH)) return null;
+  if (code !== undefined && (typeof code != 'string' || code.length > 64)) return null;
+  return { type: type as TurnstileMessage['type'], token: token as string | undefined, code: code as string | undefined };
+}
+
+interface NavigationRequest {
+  url?: string;
+  /** iOS only; `false` for iframes (the Turnstile challenge runs in one). */
+  isTopFrame?: boolean;
+}
+
+/**
+ * Navigation guard: the top frame must stay on the inline page (`baseUrl`); links clicked inside
+ * the widget (Cloudflare privacy / terms / help) open in the system browser instead of turning the
+ * WebView – which holds the `postMessage` bridge – into a general-purpose browser.
+ */
+export function shouldStartLoad(request: NavigationRequest, baseUrl: string, openUrl: (url: string) => void = openExternal): boolean {
+  const url = request.url ?? '';
+  if (request.isTopFrame === false) return true;
+  if (url == 'about:blank' || url.startsWith('about:srcdoc')) return true;
+  const origin = originOf(url);
+  // The challenge iframe (Android does not report `isTopFrame`).
+  if (origin && (origin == originOf(baseUrl) || origin == TURNSTILE_ORIGIN)) return true;
+  if (/^https:\/\//i.test(url)) openUrl(url);
+  return false;
+}
+
+function openExternal(url: string): void {
+  Promise.resolve()
+    .then(() => Linking?.openURL?.(url))
+    .catch(() => {});
 }
 
 const SIZES = { normal: { width: 300, height: 70 }, flexible: { width: '100%', height: 70 }, compact: { width: 150, height: 140 } } as const;
@@ -179,14 +246,13 @@ export const TurnstileWebView = forwardRef<TurnstileWebViewHandle, TurnstileWebV
   if (!Component || !widget) return null;
   const custom = !!siteKey;
 
-  const onMessage = (event: { nativeEvent?: { data?: string } }) => {
-    let m: { source?: string; type?: string; token?: string; code?: string };
-    try {
-      m = JSON.parse(event.nativeEvent?.data ?? '');
-    } catch {
-      return;
-    }
-    if (!m || m.source !== TURNSTILE_MESSAGE_SOURCE) return;
+  const pageOrigin = originOf(widget.baseUrl);
+  const onMessage = (event: { nativeEvent?: { data?: string; url?: string } }) => {
+    // Only the inline page (served as `baseUrl`) may talk to the app.
+    const from = event.nativeEvent?.url;
+    if (from !== undefined && originOf(from) !== pageOrigin) return;
+    const m = parseTurnstileMessage(event.nativeEvent?.data);
+    if (!m) return;
     const cb = callbacks.current;
     if (m.type == 'token' && m.token) {
       if (custom) markOrgTurnstileToken(m.token);
@@ -198,15 +264,22 @@ export const TurnstileWebView = forwardRef<TurnstileWebViewHandle, TurnstileWebV
   const onLoadError = () => callbacks.current.onError?.(new FrontmailError('captcha_failed', 'The Turnstile WebView failed to load.'));
 
   return createElement(Component, {
-    ref: webView,
-    source: { html, baseUrl: widget.baseUrl },
-    originWhitelist: ['*'],
-    javaScriptEnabled: true,
-    domStorageEnabled: true,
     scrollEnabled: false,
     automaticallyAdjustContentInsets: false,
     style: [{ backgroundColor: 'transparent' }, SIZES[size ?? 'normal'], style],
     ...webViewProps,
+    // Security-relevant props come last so `webViewProps` cannot override them.
+    ref: webView,
+    source: { html, baseUrl: widget.baseUrl },
+    originWhitelist: [pageOrigin ?? widget.baseUrl, TURNSTILE_ORIGIN, 'about:blank', 'about:srcdoc'],
+    onShouldStartLoadWithRequest: (request: NavigationRequest) => shouldStartLoad(request, widget.baseUrl),
+    javaScriptEnabled: true,
+    domStorageEnabled: true,
+    javaScriptCanOpenWindowsAutomatically: false,
+    allowFileAccess: false,
+    allowFileAccessFromFileURLs: false,
+    allowUniversalAccessFromFileURLs: false,
+    mixedContentMode: 'never',
     onMessage,
     onError: onLoadError,
   });

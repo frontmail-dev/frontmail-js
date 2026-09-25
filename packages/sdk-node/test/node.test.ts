@@ -3,6 +3,22 @@ import { Frontmail, InsufficientCreditsError, ValidationError } from '../src';
 import { accepted, apiError, jsonResponse, mockFetch } from './helpers';
 
 describe('Frontmail (node)', () => {
+  it('refuses to run in a browser unless explicitly allowed', async () => {
+    vi.stubGlobal('window', {});
+    vi.stubGlobal('document', {});
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      vi.resetModules();
+      const mod = await import('../src');
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('server-side SDK'));
+      expect(() => new mod.Frontmail({ privateKey: 'sk_1' })).toThrowError(expect.objectContaining({ code: 'private_key_in_browser' }));
+      expect(() => new mod.Frontmail({ privateKey: 'sk_1', dangerouslyAllowPrivateKeyInBrowser: true })).not.toThrow();
+    } finally {
+      warn.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('requires a private key (option or env)', () => {
     vi.stubEnv('FRONTMAIL_PRIVATE_KEY', '');
     expect(() => new Frontmail()).toThrow(/FRONTMAIL_PRIVATE_KEY/);

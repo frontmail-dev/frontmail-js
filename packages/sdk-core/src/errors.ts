@@ -19,10 +19,14 @@ export type ApiErrorCode =
   | 'headless_blocked'
   | 'recipient_blocked'
   | 'private_key_required'
+  | 'private_key_in_browser'
   | 'email_not_verified'
   | 'organization_suspended'
   | 'plan_limit_reached'
   | 'dynamic_recipient_not_allowed'
+  | 'dynamic_recipient_requires_captcha'
+  | 'dynamic_field_not_allowed'
+  | 'link_not_allowed'
   | 'attachments_not_allowed'
   | 'not_found'
   | 'service_not_found'
@@ -43,7 +47,13 @@ export type ApiErrorCode =
   | 'provider_error'
   | 'service_unavailable';
 
-export type ClientErrorCode = 'network_error' | 'timeout' | 'aborted' | 'invalid_response' | 'not_initialized';
+export type ClientErrorCode =
+  | 'network_error'
+  | 'timeout'
+  | 'aborted'
+  | 'invalid_response'
+  | 'not_initialized'
+  | 'private_key_in_browser';
 
 export type ErrorCode = ApiErrorCode | ClientErrorCode;
 
@@ -110,7 +120,7 @@ export class BlockedError extends FrontmailError {
   override name = 'BlockedError';
 }
 
-const AUTH_403 = ['forbidden', 'origin_not_allowed', 'private_key_required'];
+const AUTH_403 = ['forbidden', 'origin_not_allowed', 'private_key_required', 'private_key_in_browser'];
 
 /** Maps an HTTP error response to the matching `FrontmailError` subclass. */
 export function errorFromResponse(status: number, body: unknown, retryAfter?: number): FrontmailError {
@@ -155,10 +165,14 @@ export const ERROR_STATUS: Record<ApiErrorCode, number> = {
   headless_blocked: 403,
   recipient_blocked: 403,
   private_key_required: 403,
+  private_key_in_browser: 403,
   email_not_verified: 403,
   organization_suspended: 403,
   plan_limit_reached: 403,
   dynamic_recipient_not_allowed: 403,
+  dynamic_recipient_requires_captcha: 403,
+  dynamic_field_not_allowed: 403,
+  link_not_allowed: 403,
   attachments_not_allowed: 403,
   not_found: 404,
   service_not_found: 404,

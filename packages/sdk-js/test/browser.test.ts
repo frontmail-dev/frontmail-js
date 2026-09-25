@@ -21,6 +21,18 @@ describe('@frontmail/browser', () => {
     await expect(mod.send('s', 't')).rejects.toBeInstanceOf(mod.FrontmailError);
   });
 
+  it('refuses a private key in the browser unless explicitly allowed', async () => {
+    const { fetch, calls } = mockFetch(accepted());
+    const mod = await import('../src');
+    expect(() => mod.init({ privateKey: 'sk_1', fetch })).toThrowError(expect.objectContaining({ code: 'private_key_in_browser' }));
+    mod.init({ publicKey: 'pk_1', fetch });
+    await expect(mod.send('s', 't', {}, { privateKey: 'sk_1' })).rejects.toMatchObject({ code: 'private_key_in_browser' });
+    expect(calls).toHaveLength(0);
+    mod.init({ privateKey: 'sk_1', fetch, dangerouslyAllowPrivateKeyInBrowser: true });
+    await mod.send('s', 't');
+    expect(calls[0]!.init.headers.Authorization).toBe('Bearer sk_1');
+  });
+
   it('sends with a per-call public key (EmailJS style string option)', async () => {
     const { fetch, calls } = mockFetch(accepted());
     vi.stubGlobal('fetch', fetch);
@@ -45,7 +57,8 @@ describe('@frontmail/browser', () => {
 
     const status = await getStatus('msg_1', { token: r1.statusToken });
     expect(status.status).toBe('sent');
-    expect(calls[2]!.url).toBe('http://localhost:3000/v1/messages/msg_1?token=tok_1');
+    expect(calls[2]!.url).toBe('http://localhost:3000/v1/messages/msg_1');
+    expect(calls[2]!.init.headers['X-Frontmail-Status-Token']).toBe('tok_1');
   });
 
   it('init accepts a public key string', async () => {

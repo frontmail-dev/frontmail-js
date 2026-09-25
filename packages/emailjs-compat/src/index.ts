@@ -14,8 +14,13 @@ export interface Options {
   publicKey?: string;
   /** Legacy alias of `publicKey`. */
   user_id?: string;
-  /** Private key (`sk_…`) – server-side only. */
+  /**
+   * Private key (`sk_…`) – server-side only. In a browser this is refused (the key would be
+   * readable by every visitor) unless `dangerouslyAllowPrivateKeyInBrowser` is set.
+   */
   accessToken?: string;
+  /** Allows `accessToken` in a browser (internal tools only). Default `false`. */
+  dangerouslyAllowPrivateKeyInBrowser?: boolean;
   blockHeadless?: boolean;
   blockList?: BlockListOptions;
   limitRate?: LimitRateOptions;
@@ -70,17 +75,26 @@ async function run(o: Options, fn: (client: ReturnType<typeof createClient>) => 
   if (!publicKey && !o.accessToken) {
     throw new EmailJSResponseStatus(400, 'The public key is required. Pass it to init() or to the options argument.');
   }
-  const client = createClient({
-    apiUrl: origin,
-    publicKey,
-    privateKey: o.accessToken,
-    blockHeadless: o.blockHeadless,
-    blockList: o.blockList,
-    limitRate: o.limitRate,
-    storageProvider: o.storageProvider,
-    clientName: '@frontmail/emailjs-compat/' + version,
-    paths: { send: '/api/v1.0/email/send', sendForm: '/api/v1.0/email/send-form' },
-  });
+  let client: ReturnType<typeof createClient>;
+  try {
+    client = createClient({
+      apiUrl: origin,
+      publicKey,
+      privateKey: o.accessToken,
+      dangerouslyAllowPrivateKeyInBrowser: o.dangerouslyAllowPrivateKeyInBrowser,
+      blockHeadless: o.blockHeadless,
+      blockList: o.blockList,
+      limitRate: o.limitRate,
+      storageProvider: o.storageProvider,
+      clientName: '@frontmail/emailjs-compat/' + version,
+      paths: { send: '/api/v1.0/email/send', sendForm: '/api/v1.0/email/send-form' },
+    });
+  } catch (e) {
+    // `private_key_in_browser`: reject like any other EmailJS error.
+    const res = new EmailJSResponseStatus(400, e instanceof Error ? e.message : String(e));
+    res.error = e;
+    throw res;
+  }
   try {
     const r = await fn(client);
     const res = new EmailJSResponseStatus(200, 'OK');

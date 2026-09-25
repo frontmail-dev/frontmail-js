@@ -4,7 +4,7 @@ Contact form using `@frontmail/browser` in two flavours:
 
 - `index.html` – ES module import (`import * as frontmail from '@frontmail/browser'`)
 - `umd.html` – classic `<script src="frontmail.umd.js">` and the `window.frontmail` global
-  (`scripts/copy-umd.mjs` copies the UMD build into `public/`; in production use the CDN)
+  (`scripts/copy-umd.mjs` copies the UMD build into `public/`; in production use the CDN with a pinned version and `integrity`, see the browser SDK docs)
 
 The Turnstile widget (when a site key is set) injects `cf-turnstile-response` into the form, which
 `sendForm` submits automatically.

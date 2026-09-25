@@ -1,4 +1,4 @@
-import { ERROR_STATUS, FrontmailError, ValidationError, createClient, errorFromResponse, uuid } from '@frontmail/sdk-core';
+import { ERROR_STATUS, FrontmailError, ValidationError, createClient, errorFromResponse, isBrowser, uuid } from '@frontmail/sdk-core';
 import type {
   ApiErrorCode,
   AttachmentInput,
@@ -16,10 +16,18 @@ import type { TemplateSchema } from './codegen';
 export const CLIENT_NAME = '@frontmail/node/' + version;
 export const MAX_BATCH = 100;
 
-export interface FrontmailNodeOptions extends Pick<ClientOptions, 'apiUrl' | 'retry' | 'timeoutMs' | 'fetch'> {
+export interface FrontmailNodeOptions
+  extends Pick<ClientOptions, 'apiUrl' | 'retry' | 'timeoutMs' | 'fetch' | 'dangerouslyAllowPrivateKeyInBrowser'> {
   /** Private key `sk_…`. Defaults to `process.env.FRONTMAIL_PRIVATE_KEY`. */
   privateKey?: string;
 }
+
+const BROWSER_MESSAGE =
+  '@frontmail/node is a server-side SDK: it uses your private key (sk_…), which must never reach a browser. ' +
+  'Use @frontmail/browser (or the React/Vue/Svelte SDK) with your public key (pk_…) in the page.';
+
+// Warn once at import time – bundling this package into a web page is almost always a mistake.
+if (isBrowser()) console.warn('[frontmail] ' + BROWSER_MESSAGE);
 
 export interface SendInput<T extends string = string> {
   /** Omit to use the organization's default service. */
@@ -131,6 +139,9 @@ export class Frontmail {
   readonly client: Client;
 
   constructor(options: FrontmailNodeOptions = {}) {
+    if (isBrowser() && !options.dangerouslyAllowPrivateKeyInBrowser) {
+      throw new FrontmailError('private_key_in_browser', BROWSER_MESSAGE);
+    }
     const env = globalThis.process?.env ?? {};
     const privateKey = options.privateKey ?? env.FRONTMAIL_PRIVATE_KEY;
     if (!privateKey) {

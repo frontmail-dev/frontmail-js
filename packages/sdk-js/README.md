@@ -1,7 +1,7 @@
 # @frontmail/browser
 
 Send emails straight from the browser with [Frontmail](https://frontmail.dev). EmailJS-style API,
-**< 3 kB gzip**, automatic retries with idempotency keys, typed errors and Turnstile support.
+**< 3.5 kB gzip**, automatic retries with idempotency keys, typed errors and Turnstile support.
 
 ```sh
 npm i @frontmail/browser
@@ -26,7 +26,10 @@ await frontmail.getStatus(res.messageId, { token: res.statusToken }); // → { s
 ### `<script>` / CDN (UMD)
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@frontmail/browser/dist/frontmail.umd.js"></script>
+<script
+  src="https://cdn.jsdelivr.net/npm/@frontmail/browser@0.1.0/dist/frontmail.umd.js"
+  integrity="sha384-g2Rxznkz2yb/YYSdVTkXLxZFZ2Nh2+XdhPStxh0stydXFF3gYjDuyHimWIZLJDCc"
+  crossorigin="anonymous"></script>
 <script>
   frontmail.init({ publicKey: 'pk_…' });
   document.querySelector('form').addEventListener('submit', async (e) => {
@@ -41,11 +44,21 @@ await frontmail.getStatus(res.messageId, { token: res.statusToken }); // → { s
 </script>
 ```
 
+Always pin an exact version and keep `integrity` (Subresource Integrity): the hash of each release
+is in its [GitHub release notes](https://github.com/frontmail-dev/frontmail-js/releases) and in
+`https://cdn.frontmail.dev/v<version>/sri.json`. Unversioned URLs serve whatever is newest and can't
+use SRI – avoid them in production.
+
 ## Options (`init`)
 
 `publicKey`, `apiUrl` (default `https://api.frontmail.dev`), `retry` (`{ retries: 3, baseDelayMs: 300, maxDelayMs: 10000 }` or
 `false`), `timeoutMs` (15000), `blockHeadless`, `blockList: { list, watchVariable }`,
 `limitRate: { id?, throttle }`, `storageProvider`, `fetch`. Details: [`@frontmail/sdk-core`](../sdk-core/README.md).
+
+**Never put a private key (`sk_…`) in a web page.** `init({ privateKey })` throws
+`private_key_in_browser` in a browser (opt-out for internal tools only:
+`dangerouslyAllowPrivateKeyInBrowser: true`). `blockHeadless`, `blockList` and `limitRate` are
+client-side conveniences, not security – enforce limits in the dashboard (**Security**).
 
 ## Errors
 
@@ -71,6 +84,6 @@ Run `npx frontmail types` (package `@frontmail/node`) to generate `frontmail-env
 
 ## Size
 
-`pnpm --filter @frontmail/browser size` fails the build when the UMD bundle exceeds 3 kB gzip.
+`pnpm --filter @frontmail/browser size` fails the build when the UMD bundle exceeds 3.5 kB gzip.
 
 MIT

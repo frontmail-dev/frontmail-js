@@ -47,10 +47,21 @@ describe('send / sendForm', () => {
     await send('svc', 'tpl', {});
     await send('svc', 'tpl', {}, { publicKey: 'pk_new' });
     await send('svc', 'tpl', {}, 'pk_str');
-    await send('svc', 'tpl', {}, { accessToken: 'sk_1' });
+    await send('svc', 'tpl', {}, { accessToken: 'sk_1', dangerouslyAllowPrivateKeyInBrowser: true });
     expect(calls.map((c) => JSON.parse(c.init.body as string).user_id)).toEqual(['pk_old', 'pk_new', 'pk_str', 'pk_old']);
     expect(calls[0]!.url).toBe('http://localhost:3000/api/v1.0/email/send');
     expect(calls[3]!.init.headers.Authorization).toBe('Bearer sk_1');
+  });
+
+  it('refuses accessToken (private key) in a browser', async () => {
+    const { fetch, calls } = mockFetch(accepted());
+    vi.stubGlobal('fetch', fetch);
+    const err = await send('svc', 'tpl', {}, { accessToken: 'sk_1' }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(EmailJSResponseStatus);
+    expect(err).toMatchObject({ status: 400, error: { code: 'private_key_in_browser' } });
+    init({ publicKey: 'pk', accessToken: 'sk_1' });
+    await expect(sendForm('svc', 'tpl', '#nope')).rejects.toMatchObject({ error: { code: 'private_key_in_browser' } });
+    expect(calls).toHaveLength(0);
   });
 
   it('rejects without a public key', async () => {

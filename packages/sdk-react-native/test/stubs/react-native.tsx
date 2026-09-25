@@ -9,3 +9,4 @@ export function View({ children, testID }: { children?: ReactNode; testID?: stri
 export function Text({ children }: { children?: ReactNode }) {
   return createElement('span', null, children);
 }
+export const Linking = { openURL: async (_url: string) => {} };

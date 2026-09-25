@@ -49,6 +49,15 @@ describe('plugin', () => {
     expect(clientName).toMatch(/^@frontmail\/vue\//);
   });
 
+  it('refuses a private key in the browser unless explicitly allowed', () => {
+    expect(() => createApp({ render: () => null }).use(Frontmail, { privateKey: 'sk_1' })).toThrowError(
+      expect.objectContaining({ code: 'private_key_in_browser' }),
+    );
+    expect(() =>
+      createApp({ render: () => null }).use(Frontmail, { privateKey: 'sk_1', dangerouslyAllowPrivateKeyInBrowser: true }),
+    ).not.toThrow();
+  });
+
   it('throws without the plugin', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     const Comp = defineComponent({

@@ -37,8 +37,18 @@ await frontmail.sendForm('svc_…', 'tpl_…', '#contact-form');
 Or without a bundler:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@frontmail/browser/dist/frontmail.umd.js"></script>
+<script
+  src="https://cdn.jsdelivr.net/npm/@frontmail/browser@0.1.0/dist/frontmail.umd.js"
+  integrity="sha384-g2Rxznkz2yb/YYSdVTkXLxZFZ2Nh2+XdhPStxh0stydXFF3gYjDuyHimWIZLJDCc"
+  crossorigin="anonymous"></script>
 ```
+
+Always pin an exact version and keep `integrity` (Subresource Integrity): the hash of each release
+is in its [GitHub release notes](https://github.com/frontmail-dev/frontmail-js/releases) and in
+`https://cdn.frontmail.dev/v<version>/sri.json`. Unversioned URLs serve whatever is newest and can't
+use SRI – avoid them in production.
+
+Only the **public key** (`pk_…`) belongs in a web page – the browser SDKs refuse a private key.
 
 See the [getting started guide](https://docs.frontmail.dev/getting-started/quickstart/) for creating
 a service, a template and your public key.

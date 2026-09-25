@@ -8,6 +8,7 @@ import {
   RateLimitError,
   ValidationError,
   createClient,
+  isBrowser,
 } from '../src';
 import { accepted, apiError, jsonResponse, mockFetch } from './helpers';
 
@@ -62,7 +63,7 @@ describe('send', () => {
 
   it('uses the private key as bearer token and maps attachments', async () => {
     const { fetch, calls } = mockFetch(accepted());
-    const client = createClient({ privateKey: 'sk_1', fetch });
+    const client = createClient({ privateKey: 'sk_1', fetch, dangerouslyAllowPrivateKeyInBrowser: true });
     await settle(
       client.send(null, 'tpl_1', {}, {
         attachments: [{ uploadId: 'upl_1' }, { filename: 'a.txt', contentType: 'text/plain', contentBase64: 'YQ==' }],
@@ -363,7 +364,8 @@ describe('getStatus / request', () => {
       jsonResponse(200, { message_id: 'msg_1', status: 'sent', created_at: 'x', events: [{ type: 'accepted', at: 'y' }] }),
     );
     const { value } = await settle(createClient({ fetch, publicKey: 'pk' }).getStatus('msg_1', { token: 'tok' }));
-    expect(calls[0]!.url).toBe('https://api.frontmail.dev/v1/messages/msg_1?token=tok');
+    expect(calls[0]!.url).toBe('https://api.frontmail.dev/v1/messages/msg_1');
+    expect(calls[0]!.init.headers['X-Frontmail-Status-Token']).toBe('tok');
     expect(calls[0]!.init.method).toBe('GET');
     expect(calls[0]!.init.headers['X-Frontmail-Public-Key']).toBe('pk');
     expect(value).toEqual({ messageId: 'msg_1', status: 'sent', createdAt: 'x', events: [{ type: 'accepted', at: 'y' }] });
@@ -385,7 +387,8 @@ describe('getStatus / request', () => {
       const { fetch, calls } = mockFetch(jsonResponse(200, { message_id: 'm', status: 'sent', events: [] }), accepted());
       const client = createClient({ fetch, publicKey: 'pk', limitRate: { throttle: 1000 } });
       await settle(client.getStatus('m', { token: 'a b&c' }));
-      expect(calls[0]!.url).toBe('https://api.frontmail.dev/v1/messages/m?token=a%20b%26c');
+      expect(calls[0]!.url).toBe('https://api.frontmail.dev/v1/messages/m');
+      expect(calls[0]!.init.headers['X-Frontmail-Status-Token']).toBe('a b&c');
       const { value, error } = await settle(client.send('svc', 'tpl', { name: 'Jan' }));
       expect(error).toBeUndefined();
       expect(value?.status).toBe('queued');
@@ -394,5 +397,43 @@ describe('getStatus / request', () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+});
+
+describe('private key in a browser (SDK-01)', () => {
+  it('refuses a private key in a browser by default', async () => {
+    const { fetch, calls } = mockFetch(accepted());
+    expect(() => createClient({ privateKey: 'sk_1', fetch })).toThrowError(
+      expect.objectContaining({ code: 'private_key_in_browser', status: 0 }),
+    );
+    const client = createClient({ publicKey: 'pk_1', fetch });
+    const { error } = await settle(client.send('s', 't', {}, { privateKey: 'sk_1' }));
+    expect(error).toMatchObject({ code: 'private_key_in_browser' });
+    expect(calls).toHaveLength(0);
+  });
+
+  it('allows it with dangerouslyAllowPrivateKeyInBrowser', async () => {
+    const { fetch, calls } = mockFetch(accepted());
+    const client = createClient({ publicKey: 'pk_1', fetch, dangerouslyAllowPrivateKeyInBrowser: true });
+    await settle(client.send('s', 't', {}, { privateKey: 'sk_1' }));
+    expect(calls[0]!.init.headers.Authorization).toBe('Bearer sk_1');
+  });
+
+  it('allows it outside a browser (no document) and in React Native', async () => {
+    vi.stubGlobal('document', undefined);
+    try {
+      expect(isBrowser()).toBe(false);
+      expect(() => createClient({ privateKey: 'sk_1' })).not.toThrow();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    vi.stubGlobal('navigator', { product: 'ReactNative' });
+    try {
+      expect(isBrowser()).toBe(false);
+      expect(() => createClient({ privateKey: 'sk_1' })).not.toThrow();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(isBrowser()).toBe(true);
   });
 });

@@ -1,3 +1,5 @@
+import type { FormFieldOptions } from './form';
+
 /**
  * Map of template ids to their parameter types. Empty by default – `npx frontmail types`
  * generates a declaration file that augments it, e.g.
@@ -61,8 +63,16 @@ export interface RetryOptions {
 export interface ClientOptions extends GuardOptions {
   /** Public key `pk_…` (browser). */
   publicKey?: string;
-  /** Private key `sk_…` (server only – never ship it to a browser). */
+  /**
+   * Private key `sk_…` (server only – never ship it to a browser). In a browser the client throws
+   * `private_key_in_browser` unless `dangerouslyAllowPrivateKeyInBrowser` is set.
+   */
   privateKey?: string;
+  /**
+   * Allows a private key in a browser (internal tools on trusted machines only). Anyone who can
+   * open the page can read the key and use it to read your message history. Default `false`.
+   */
+  dangerouslyAllowPrivateKeyInBrowser?: boolean;
   /** Default `https://api.frontmail.dev`. */
   apiUrl?: string;
   /** Retry policy for network errors, 5xx and 429. `false` disables retries. */
@@ -99,6 +109,12 @@ export interface SendOptions extends GuardOptions {
    */
   turnstileKey?: TurnstileKey;
   attachments?: AttachmentInput[];
+  /**
+   * `sendForm` only: which form fields are sent. By default password inputs, well-known CSRF
+   * token fields and reserved API names (`accessToken`, `privateKey`, `turnstile_key`, …) are
+   * skipped; `include` turns the form into an allowlist, `exclude` drops more fields.
+   */
+  formFields?: FormFieldOptions;
   signal?: AbortSignal;
 }
 

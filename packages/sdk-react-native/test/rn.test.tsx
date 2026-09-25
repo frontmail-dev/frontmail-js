@@ -9,6 +9,8 @@ import {
   asyncStorageProvider,
   defaultStorageProvider,
   memoryStorageProvider,
+  parseTurnstileMessage,
+  shouldStartLoad,
   turnstileHtml,
   useFrontmail,
   useSendEmail,
@@ -132,7 +134,9 @@ describe('useSendEmail', () => {
     await act(async () => void (await result.current.send({})));
     const status = await result.current.getStatus();
     expect(status).toMatchObject({ messageId: 'msg_1', status: 'delivered' });
-    expect(vi.mocked(fetch).mock.calls[1]![0]).toBe('https://api.frontmail.dev/v1/messages/msg_1?token=tok_1');
+    const [url, init] = vi.mocked(fetch).mock.calls[1]! as unknown as [string, { headers: Record<string, string> }];
+    expect(url).toBe('https://api.frontmail.dev/v1/messages/msg_1');
+    expect(init.headers['X-Frontmail-Status-Token']).toBe('tok_1');
   });
 });
 
@@ -254,6 +258,56 @@ describe('<TurnstileWebView>', () => {
 
     ref.current!.reset();
     expect(wv.state.last!.injected.join()).toContain('turnstile.reset');
+  });
+
+  it('locks the WebView to the widget page (origins, navigation, bridge, props)', () => {
+    const wv = createWebViewStub();
+    const onToken = vi.fn();
+    render(
+      <TurnstileWebView
+        siteKey="0x4AAA"
+        baseUrl="https://Example.com/form"
+        onToken={onToken}
+        WebViewComponent={wv.WebView}
+        webViewProps={{ originWhitelist: ['*'], source: { uri: 'https://evil.test' }, onShouldStartLoadWithRequest: () => true, testID: 'x' }}
+      />,
+    );
+    const props = wv.state.last!.props as {
+      source: { html: string; baseUrl: string };
+      originWhitelist: string[];
+      testID: string;
+      onShouldStartLoadWithRequest: (r: { url: string; isTopFrame?: boolean }) => boolean;
+      onMessage: (e: { nativeEvent: { data: string; url?: string } }) => void;
+    };
+    expect(props.testID).toBe('x');
+    expect(props.source.baseUrl).toBe('https://Example.com/form');
+    expect(props.originWhitelist).toEqual(['https://example.com', 'https://challenges.cloudflare.com', 'about:blank', 'about:srcdoc']);
+    const nav = props.onShouldStartLoadWithRequest;
+    expect(nav({ url: 'https://example.com/form' })).toBe(true);
+    expect(nav({ url: 'https://challenges.cloudflare.com/cdn-cgi/challenge-platform/x' })).toBe(true);
+    expect(nav({ url: 'https://tracker.test/', isTopFrame: false })).toBe(true);
+    expect(nav({ url: 'about:blank' })).toBe(true);
+    expect(nav({ url: 'https://www.cloudflare.com/privacypolicy/' })).toBe(false);
+    expect(nav({ url: 'javascript:alert(1)' })).toBe(false);
+
+    const token = { source: 'frontmail-turnstile', type: 'token', token: 'tok-1' };
+    act(() => props.onMessage({ nativeEvent: { data: JSON.stringify(token), url: 'https://evil.test/' } }));
+    act(() => props.onMessage({ nativeEvent: { data: JSON.stringify({ ...token, token: 42 }), url: 'https://example.com/form' } }));
+    act(() => props.onMessage({ nativeEvent: { data: JSON.stringify({ ...token, type: 'other' }) } }));
+    act(() => props.onMessage({ nativeEvent: { data: JSON.stringify({ ...token, token: 'x'.repeat(5000) }) } }));
+    expect(onToken).not.toHaveBeenCalled();
+    act(() => props.onMessage({ nativeEvent: { data: JSON.stringify(token), url: 'https://example.com/form' } }));
+    expect(onToken).toHaveBeenCalledWith('tok-1');
+  });
+
+  it('opens external https links in the system browser', () => {
+    const open = vi.fn();
+    expect(shouldStartLoad({ url: 'https://www.cloudflare.com/privacypolicy/' }, 'https://example.com', open)).toBe(false);
+    expect(open).toHaveBeenCalledWith('https://www.cloudflare.com/privacypolicy/');
+    expect(shouldStartLoad({ url: 'intent://x' }, 'https://example.com', open)).toBe(false);
+    expect(open).toHaveBeenCalledTimes(1);
+    expect(parseTurnstileMessage('{"source":"frontmail-turnstile","type":"expired"}')).toEqual({ type: 'expired' });
+    expect(parseTurnstileMessage('[]')).toBeNull();
   });
 
   it('lazy-loads react-native-webview', () => {

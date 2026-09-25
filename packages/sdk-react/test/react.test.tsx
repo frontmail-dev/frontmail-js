@@ -36,6 +36,16 @@ describe('useFrontmail', () => {
     vi.restoreAllMocks();
   });
 
+  it('refuses a private key in the browser unless explicitly allowed', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(() => renderHook(() => useFrontmail(), { wrapper: wrapper({ privateKey: 'sk_1' }) })).toThrow(/must not be used in a browser/);
+    vi.restoreAllMocks();
+    const { result } = renderHook(() => useFrontmail(), {
+      wrapper: wrapper({ privateKey: 'sk_1', dangerouslyAllowPrivateKeyInBrowser: true }),
+    });
+    expect(result.current.options.privateKey).toBe('sk_1');
+  });
+
   it('returns a client with the React client name', () => {
     const { result } = renderHook(() => useFrontmail(), { wrapper: wrapper({ publicKey: 'pk' }) });
     expect(result.current.options.clientName).toMatch(/^@frontmail\/react\//);
