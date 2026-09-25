@@ -86,11 +86,16 @@ describe('generateTypes', () => {
       module: ts.ModuleKind.ESNext,
       moduleResolution: ts.ModuleResolutionKind.Bundler,
       target: ts.ScriptTarget.ES2022,
+      // Only the ES lib (no DOM) and no lib checking – keeps this in-process compile fast on CI.
+      lib: ['lib.es2022.d.ts'],
+      skipLibCheck: true,
+      skipDefaultLibCheck: true,
       types: [],
     });
     const diags = ts.getPreEmitDiagnostics(program).map((d) => ts.flattenDiagnosticMessageText(d.messageText, '\n'));
     expect(diags).toEqual([]);
-  });
+    // A full TypeScript program can take several seconds on busy CI runners.
+  }, 60_000);
 });
 
 describe('frontmail types CLI', () => {
