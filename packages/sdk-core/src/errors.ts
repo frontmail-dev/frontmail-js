@@ -37,6 +37,9 @@ export type ApiErrorCode =
   | 'payload_too_large'
   | 'attachment_too_large'
   | 'invalid_template_params'
+  | 'translation_not_configured'
+  | 'translation_invalid'
+  | 'translation_provider_auth'
   | 'template_render_failed'
   | 'invalid_recipient'
   | 'service_unavailable_for_template'
@@ -46,6 +49,7 @@ export type ApiErrorCode =
   | 'recipient_suppressed'
   | 'internal_error'
   | 'provider_error'
+  | 'translation_provider_error'
   | 'service_unavailable';
 
 export type ClientErrorCode =
@@ -184,6 +188,9 @@ export const ERROR_STATUS: Record<ApiErrorCode, number> = {
   payload_too_large: 413,
   attachment_too_large: 413,
   invalid_template_params: 422,
+  translation_not_configured: 422,
+  translation_invalid: 422,
+  translation_provider_auth: 422,
   template_render_failed: 422,
   invalid_recipient: 422,
   service_unavailable_for_template: 422,
@@ -193,5 +200,6 @@ export const ERROR_STATUS: Record<ApiErrorCode, number> = {
   recipient_suppressed: 451,
   internal_error: 500,
   provider_error: 502,
+  translation_provider_error: 502,
   service_unavailable: 503,
 };

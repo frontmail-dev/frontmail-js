@@ -50,13 +50,15 @@ function Subscribe() {
 - `useSendEmail(serviceId, templateId)` → `{ send(params, options?), sendForm(form, options?), status, error, result, reset }`.
   `status`: `idle → sending → sent | held | error` (`sent` = accepted and queued, `held` = accepted and
   waiting for credits). `send` resolves with the result or `undefined` on error – it never rejects.
-- `<FrontmailForm serviceId? templateId turnstileSiteKey? turnstileOptions? sendOptions? resetOnSuccess? onSuccess? onError?>` –
+- `<FrontmailForm serviceId? templateId turnstileSiteKey? turnstileOptions? locale? sendOptions? resetOnSuccess? onSuccess? onError?>` –
   renders a `<form>` (other props are passed through, `data-status` reflects the status). Children may be
   a render function receiving `{ status, error, result }`. The Turnstile script is loaded lazily and the
   widget is reset after each submit.
   `turnstileSiteKey` is **your own** Cloudflare Turnstile site key (create a widget in your Cloudflare
   account listing your site's hostnames, then enter the site key + secret in the dashboard under
   Security → Bot protection). Without it, templates requiring Turnstile fail with `captcha_not_configured`.
+  `locale` (e.g. `"de"`) picks a language variant of the template (sent as `fm_locale`; a form field named
+  `fm_locale` wins). `send`/`sendForm` accept it as `options.locale`; `result.locale` is the language used.
 
 The entry is marked `'use client'` for React Server Components frameworks.
 

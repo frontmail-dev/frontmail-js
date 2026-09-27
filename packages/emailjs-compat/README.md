@@ -42,6 +42,9 @@ The hash of each release is in its [GitHub release notes](https://github.com/fro
 - Failures reject with `EmailJSResponseStatus { status, text }` (and `error`, the underlying
   `FrontmailError`): API errors keep their HTTP status and message, network errors are `0 'Network Error'`,
   `blockHeadless` → `451`, `blockList` → `403`, `limitRate` → `429`.
+- Template language variants are not supported (EmailJS has no such concept): the EmailJS aliases
+  always send the template's default language. Use `@frontmail/browser` with the `locale` option
+  to choose a language.
 - On top of EmailJS you get automatic retries with idempotency keys and the hold queue: when credits
   run out, emails are accepted (`deliveryStatus: 'held'`) instead of being dropped.
 

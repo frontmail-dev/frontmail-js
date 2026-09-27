@@ -37,11 +37,13 @@ npm i @frontmail/svelte
   `state` is a store with `{ status, error, result }`; `status` a derived store. `send`/`sendForm`
   resolve with the result or `undefined` on error. The first instance becomes the default for the action.
 - `setFrontmail(instance)` / `getFrontmail()` – context helpers (`<FrontmailForm>` reads the context).
-- `use:frontmailForm={{ serviceId?, templateId, frontmail?, turnstileSiteKey?, turnstileOptions?, sendOptions?, resetOnSuccess?, onSuccess?, onError?, onState? }}` –
+- `use:frontmailForm={{ serviceId?, templateId, frontmail?, turnstileSiteKey?, turnstileOptions?, locale?, sendOptions?, resetOnSuccess?, onSuccess?, onError?, onState? }}` –
   submits the form via `sendForm`, mirrors the status in `data-status` and updates the instance stores.
   `turnstileSiteKey` is **your own** Cloudflare Turnstile site key (create a widget in your Cloudflare
   account listing your site's hostnames, then enter the site key + secret in the dashboard under
   Security → Bot protection). Without it, templates requiring Turnstile fail with `captcha_not_configured`.
+  `locale` (e.g. `"de"`) picks a language variant of the template (sent as `fm_locale`; a form field named
+  `fm_locale` wins). `client.send`/`sendForm` accept it as `options.locale`; `result.locale` is the language used.
 - `<FrontmailForm>` – props as above plus any `<form>` attribute; `children` snippet receives
   `{ status, error, result }`.
 

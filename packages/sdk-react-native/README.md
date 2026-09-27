@@ -59,6 +59,7 @@ function Contact() {
 - `useSendEmail(serviceId, templateId)` → `{ send(params, options?), getStatus(), status, error, result, reset }`.
   `status`: `idle → sending → sent | held | error`. `send` resolves with the result or `undefined` on
   error – it never rejects. `getStatus()` reads the delivery status of the last accepted message.
+  `send(params, { locale: 'de' })` picks a language variant of the template (the API falls back to the same base language (`de-AT` → `de`), then to the template's default language); `result.locale` is the language used.
 - `<TurnstileWebView onToken siteKey? baseUrl? apiUrl? onError? onExpire? theme? size? action? language? style?>` –
   renders the Turnstile widget in `react-native-webview` (inline HTML with `baseUrl` as the page URL).
   **No key is needed by default**: without `siteKey` it uses Frontmail's shared mobile widget (site key

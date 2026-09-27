@@ -61,6 +61,20 @@ describe('send', () => {
     expect(JSON.parse(calls[1]!.init.body as string)).not.toHaveProperty('turnstile_key');
   });
 
+  it('sends locale only when set and returns the resolved locale', async () => {
+    const { fetch, calls } = mockFetch(
+      jsonResponse(202, { message_id: 'msg_1', status: 'queued', status_token: 'tok_1', locale: 'de' }),
+      accepted(),
+    );
+    const client = createClient({ publicKey: 'pk_1', fetch });
+    const a = await settle(client.send('s', 't', {}, { locale: 'de-AT' }));
+    const b = await settle(client.send('s', 't', {}));
+    expect(JSON.parse(calls[0]!.init.body as string)).toMatchObject({ locale: 'de-AT' });
+    expect(JSON.parse(calls[1]!.init.body as string)).not.toHaveProperty('locale');
+    expect(a.value?.locale).toBe('de');
+    expect(b.value).not.toHaveProperty('locale');
+  });
+
   it('uses the private key as bearer token and maps attachments', async () => {
     const { fetch, calls } = mockFetch(accepted());
     const client = createClient({ privateKey: 'sk_1', fetch, dangerouslyAllowPrivateKeyInBrowser: true });
@@ -331,6 +345,20 @@ describe('sendForm', () => {
     expect(a!.get('cf-turnstile-response')).toBe('tok');
     expect(a!.get('turnstile_key')).toBe('frontmail');
     expect(b!.has('turnstile_key')).toBe(false);
+  });
+
+  it('adds the fm_locale form field only when set and keeps an fm_locale input of the form', async () => {
+    document.body.innerHTML = `<form id="a"><input name="a" value="1"></form><form id="b"><select name="fm_locale"><option value="cs" selected>cs</option></select></form>`;
+    const { fetch, calls } = mockFetch(accepted());
+    const client = createClient({ fetch, publicKey: 'pk' });
+    await settle(client.sendForm('s', 't', '#a', { locale: 'de' }));
+    await settle(client.sendForm('s', 't', '#a'));
+    await settle(client.sendForm('s', 't', '#b', { locale: 'de' }));
+    const [a, b, c] = calls.map((x) => x.init.body as FormData);
+    expect(a!.get('fm_locale')).toBe('de');
+    expect(a!.has('locale')).toBe(false);
+    expect(b!.has('fm_locale')).toBe(false);
+    expect(c!.getAll('fm_locale')).toEqual(['cs']);
   });
 
   it('applies the block list to form fields', async () => {

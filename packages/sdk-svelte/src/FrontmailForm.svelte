@@ -12,6 +12,7 @@
     frontmail?: FrontmailInstance;
     turnstileSiteKey?: string;
     turnstileOptions?: Omit<TurnstileRenderOptions, 'sitekey'>;
+    locale?: string;
     sendOptions?: SendOptions;
     resetOnSuccess?: boolean;
     onSuccess?: (result: SendResult) => void;
@@ -25,6 +26,7 @@
     frontmail,
     turnstileSiteKey,
     turnstileOptions,
+    locale,
     sendOptions,
     resetOnSuccess = true,
     onSuccess,
@@ -46,6 +48,7 @@
     frontmail: frontmail ?? fromContext,
     turnstileSiteKey,
     turnstileOptions,
+    locale,
     sendOptions,
     resetOnSuccess,
     onSuccess,

@@ -61,6 +61,17 @@ describe('@frontmail/browser', () => {
     expect(calls[2]!.init.headers['X-Frontmail-Status-Token']).toBe('tok_1');
   });
 
+  it('passes the locale option to send and sendForm', async () => {
+    const { fetch, calls } = mockFetch(jsonResponse(202, { message_id: 'msg_1', status: 'queued', status_token: 'tok_1', locale: 'de' }));
+    init({ publicKey: 'pk_1', fetch });
+    const r = await send('svc', 'tpl', {}, { locale: 'de' });
+    expect(JSON.parse(calls[0]!.init.body as string).locale).toBe('de');
+    expect(r.locale).toBe('de');
+    document.body.innerHTML = '<form id="c"><input name="message" value="hi"></form>';
+    await sendForm('svc', 'tpl', '#c', { locale: 'de' });
+    expect((calls[1]!.init.body as FormData).get('fm_locale')).toBe('de');
+  });
+
   it('init accepts a public key string', async () => {
     const { fetch, calls } = mockFetch(accepted());
     vi.stubGlobal('fetch', fetch);

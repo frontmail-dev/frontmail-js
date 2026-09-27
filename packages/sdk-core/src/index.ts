@@ -14,7 +14,7 @@ export {
   isFrontmailError,
 } from './errors';
 export type { ApiErrorCode, ClientErrorCode, ErrorCode, FrontmailErrorInit } from './errors';
-export { CSRF_FIELD, RESERVED_FIELD, TURNSTILE_FIELD, formData, formToParams, resolveForm } from './form';
+export { CSRF_FIELD, LOCALE_FIELD, RESERVED_FIELD, TURNSTILE_FIELD, formData, formToParams, resolveForm } from './form';
 export type { FormFieldOptions, FormParams } from './form';
 export { _resetPublicConfigCache, getPublicConfig } from './public-config';
 export type { PublicConfig } from './public-config';

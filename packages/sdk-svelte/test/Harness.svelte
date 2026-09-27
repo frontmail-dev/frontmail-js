@@ -5,11 +5,13 @@
   let {
     frontmail,
     turnstileSiteKey,
+    locale,
     onSuccess,
     onError,
   }: {
     frontmail: FrontmailInstance;
     turnstileSiteKey?: string;
+    locale?: string;
     onSuccess?: (r: SendResult) => void;
     onError?: (e: FrontmailError) => void;
   } = $props();
@@ -18,7 +20,7 @@
   setFrontmail(frontmail);
 </script>
 
-<FrontmailForm serviceId="svc" templateId="tpl" {turnstileSiteKey} {onSuccess} {onError} data-testid="form">
+<FrontmailForm serviceId="svc" templateId="tpl" {turnstileSiteKey} {locale} {onSuccess} {onError} data-testid="form">
   {#snippet children({ status, error })}
     <input name="email" value="a@b.cz" data-testid="email" />
     <button type="submit">Send</button>

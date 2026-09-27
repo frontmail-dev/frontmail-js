@@ -1,6 +1,11 @@
 import { FrontmailError } from './errors';
 
 export const TURNSTILE_FIELD = 'cf-turnstile-response';
+/**
+ * Reserved `sendForm` field choosing the template language (a plain `locale` field stays a template
+ * param). Unlike credentials it may come from the form itself, e.g. a language `<select>`.
+ */
+export const LOCALE_FIELD = 'fm_locale';
 
 /** Resolves a form element or CSS selector. */
 export function resolveForm(form: HTMLFormElement | string): HTMLFormElement {
@@ -30,7 +35,8 @@ export const RESERVED_FIELD = /^(access_?token|private_?key|turnstile_key|templa
 /** Which fields of a form are sent by `sendForm` / collected by `formToParams`. */
 export interface FormFieldOptions {
   /**
-   * Allowlist of field names. When set, only these fields (plus the Turnstile token) are sent.
+   * Allowlist of field names. When set, only these fields (plus the Turnstile token and
+   * `fm_locale`) are sent.
    * Naming a password or CSRF field here sends it anyway.
    */
   include?: string[];
@@ -51,8 +57,8 @@ export function formData(form: HTMLFormElement, options: FormFieldOptions = {}):
   const out = new FormData();
   fd.forEach((v, k) => {
     if (isEmptyFile(v) || RESERVED_FIELD.test(k) || exclude.has(k)) return;
-    const turnstile = k == TURNSTILE_FIELD || k == 'turnstile_token';
-    if (include ? !include.has(k) && !turnstile : passwords.has(k) || CSRF_FIELD.test(k)) return;
+    const control = k == TURNSTILE_FIELD || k == 'turnstile_token' || k == LOCALE_FIELD;
+    if (include ? !include.has(k) && !control : passwords.has(k) || CSRF_FIELD.test(k)) return;
     out.append(k, v);
   });
   return out;
@@ -65,6 +71,8 @@ export interface FormParams {
   files: { name: string; file: File }[];
   /** Value of the Turnstile widget's hidden `cf-turnstile-response` input, if any. */
   turnstileToken?: string;
+  /** Value of an `fm_locale` field (pass it as the `locale` send option). */
+  locale?: string;
 }
 
 /** Collects text fields and files of a form (or selector), filtered like `sendForm`. */
@@ -73,6 +81,7 @@ export function formToParams(form: HTMLFormElement | string, options?: FormField
   formData(resolveForm(form), options).forEach((v, k) => {
     if (typeof v != 'string') return void result.files.push({ name: k, file: v });
     if (k == TURNSTILE_FIELD || k == 'turnstile_token') return void (result.turnstileToken = v);
+    if (k == LOCALE_FIELD) return void (v && (result.locale = v));
     const prev = result.params[k];
     result.params[k] = prev === undefined ? v : ([] as string[]).concat(prev, v);
   });

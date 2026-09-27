@@ -53,6 +53,20 @@ describe('generateTypes', () => {
     expect(out).toContain("declare module \"@frontmail/react\" {\n  interface FrontmailTemplates {\n    \"tpl_contact\": ContactFormParams;");
   });
 
+  it('emits the languages as a comment and a Locale union type', () => {
+    const out = generateTypes(
+      [
+        { templateId: 'tpl_a', name: 'Order', params: [], locales: ['en', 'de', 'pt-BR'] },
+        { templateId: 'tpl_b', name: 'Plain', params: [], locales: [] },
+      ],
+      { modules: [] },
+    );
+    expect(out).toContain('/** Order (tpl_a) – languages: en (default), de, pt-BR */\nexport interface OrderParams {}');
+    expect(out).toContain('export type OrderLocale = "en" | "de" | "pt-BR";');
+    expect(out).toContain('/** Plain (tpl_b) */');
+    expect(out).not.toContain('PlainLocale');
+  });
+
   it('pascalCase', () => {
     expect(pascalCase('123 go')).toBe('Template123Go');
     expect(pascalCase('!!!')).toBe('Template');

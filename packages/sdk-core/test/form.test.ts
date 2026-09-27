@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { FrontmailError, createClient, formToParams } from '../src';
+import { FrontmailError, createClient, formData, formToParams } from '../src';
 import { accepted, mockFetch } from './helpers';
 
 describe('formToParams', () => {
@@ -67,6 +67,12 @@ describe('form field filtering (SDK-07)', () => {
     const r = formToParams('#f');
     expect(r.params).toEqual({ email: 'a@b.cz', note: 'n' });
     expect(r.turnstileToken).toBe('tok');
+  });
+
+  it('keeps fm_locale with an allowlist and exposes it as locale', () => {
+    document.body.innerHTML = `<form id="l"><input name="email" value="a@b.cz"><input type="hidden" name="fm_locale" value="cs"></form>`;
+    expect(formToParams('#l')).toMatchObject({ params: { email: 'a@b.cz' }, locale: 'cs' });
+    expect(formData(document.forms[0]!, { include: ['email'] }).get('fm_locale')).toBe('cs');
   });
 
   it('supports include (allowlist) and exclude', () => {

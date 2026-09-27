@@ -43,6 +43,24 @@ describe('Frontmail (node)', () => {
     expect(JSON.parse(init.body as string)).toEqual({ service_id: 'svc', template_id: 'tpl', template_params: { a: 1 } });
   });
 
+  it('send and sendBatch pass locale and return the resolved locale', async () => {
+    const { fetch, calls } = mockFetch(
+      jsonResponse(202, { message_id: 'msg_1', status: 'queued', status_token: 'tok_1', locale: 'de' }),
+      jsonResponse(200, { results: [{ index: 0, message_id: 'msg_a', status: 'queued', locale: 'cs' }, { index: 1, message_id: 'msg_b', status: 'queued' }] }),
+    );
+    const fm = new Frontmail({ privateKey: 'sk', fetch });
+    await expect(fm.send({ templateId: 'tpl', locale: 'de-AT' })).resolves.toMatchObject({ locale: 'de' });
+    expect(JSON.parse(calls[0]!.init.body as string).locale).toBe('de-AT');
+    const results = await fm.sendBatch([{ templateId: 't', locale: 'cs' }, { templateId: 't' }]);
+    expect(results).toEqual([
+      { index: 0, ok: true, messageId: 'msg_a', status: 'queued', locale: 'cs' },
+      { index: 1, ok: true, messageId: 'msg_b', status: 'queued' },
+    ]);
+    const body = JSON.parse(calls[1]!.init.body as string);
+    expect(body.messages[0].locale).toBe('cs');
+    expect(body.messages[1]).not.toHaveProperty('locale');
+  });
+
   it('send throws typed errors', async () => {
     const { fetch } = mockFetch(apiError(402, 'insufficient_credits'));
     await expect(new Frontmail({ privateKey: 'sk', fetch }).send({ templateId: 't' })).rejects.toBeInstanceOf(InsufficientCreditsError);
@@ -109,14 +127,16 @@ describe('Frontmail (node)', () => {
   it('getMessage and templates', async () => {
     const { fetch, calls } = mockFetch(
       jsonResponse(200, { message_id: 'm', status: 'delivered', created_at: 'x', events: [] }),
-      jsonResponse(200, { items: [{ template_id: 'tpl_1', name: 'Contact', params: [{ name: 'a', type: 'string', required: true }] }] }),
+      jsonResponse(200, {
+        items: [{ template_id: 'tpl_1', name: 'Contact', locales: ['en', 'de'], params: [{ name: 'a', type: 'string', required: true }] }],
+      }),
       jsonResponse(200, { template_id: 'tpl_1', name: 'Contact' }),
     );
     const fm = new Frontmail({ privateKey: 'sk', fetch });
     await expect(fm.getMessage('m')).resolves.toMatchObject({ messageId: 'm', status: 'delivered' });
     expect(calls[0]!.url).toBe('https://api.frontmail.dev/v1/messages/m');
     await expect(fm.templates.list()).resolves.toEqual([
-      { templateId: 'tpl_1', name: 'Contact', params: [{ name: 'a', type: 'string', required: true }] },
+      { templateId: 'tpl_1', name: 'Contact', params: [{ name: 'a', type: 'string', required: true }], locales: ['en', 'de'] },
     ]);
     await expect(fm.templates.get('tpl_1')).resolves.toEqual({ templateId: 'tpl_1', name: 'Contact', params: [] });
   });

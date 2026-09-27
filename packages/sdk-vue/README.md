@@ -47,12 +47,14 @@ const onSuccess = (r: SendResult) => console.log(r.messageId, r.status);
 - `useSendEmail(serviceId, templateId)` – ids may be refs/getters. Returns readonly refs `status`
   (`idle | sending | sent | held | error`), `error`, `result` plus `send(params)`, `sendForm(form)` and
   `reset()`. `send` resolves with the result or `undefined` on error.
-- `<FrontmailForm>` props: `serviceId`, `templateId`, `turnstileSiteKey`, `turnstileOptions`,
+- `<FrontmailForm>` props: `serviceId`, `templateId`, `turnstileSiteKey`, `turnstileOptions`, `locale`,
   `sendOptions`, `resetOnSuccess` (default `true`); emits `success`, `error`, `status`; default slot
   props `{ status, error, result }`. Turnstile loads lazily and resets after each submit.
   `turnstileSiteKey` is **your own** Cloudflare Turnstile site key (create a widget in your Cloudflare
   account listing your site's hostnames, then enter the site key + secret in the dashboard under
   Security → Bot protection). Without it, templates requiring Turnstile fail with `captcha_not_configured`.
+  `locale` (e.g. `"de"`) picks a language variant of the template (sent as `fm_locale`; a form field named
+  `fm_locale` wins). `send`/`sendForm` accept it as `options.locale`; `result.locale` is the language used.
 
 ## Errors
 

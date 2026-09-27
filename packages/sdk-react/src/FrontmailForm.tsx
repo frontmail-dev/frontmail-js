@@ -11,6 +11,8 @@ export interface FrontmailFormProps extends Omit<FormHTMLAttributes<HTMLFormElem
   /** Renders a Cloudflare Turnstile widget (script loaded lazily); its token is submitted automatically. */
   turnstileSiteKey?: string;
   turnstileOptions?: Omit<TurnstileRenderOptions, 'sitekey'>;
+  /** Preferred template language (BCP 47, e.g. `de`), sent as `fm_locale` unless the form has an `fm_locale` field. Overrides `sendOptions.locale`. */
+  locale?: string;
   /** Per-send options (guards, idempotency key…). */
   sendOptions?: SendOptions;
   /** Reset the form fields after a successful send. Default `true`. */
@@ -26,6 +28,7 @@ export function FrontmailForm({
   templateId,
   turnstileSiteKey,
   turnstileOptions,
+  locale,
   sendOptions,
   resetOnSuccess = true,
   onSuccess,
@@ -63,7 +66,7 @@ export function FrontmailForm({
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget;
-    const result = await sendForm(form, sendOptions);
+    const result = await sendForm(form, locale ? { ...sendOptions, locale } : sendOptions);
     // Turnstile tokens are single-use.
     turnstile.current?.api.reset(turnstile.current.widgetId);
     if (result) {

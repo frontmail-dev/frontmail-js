@@ -11,6 +11,8 @@ export interface FrontmailFormParams {
   /** Renders a Turnstile widget at the end of the form (script loaded lazily). */
   turnstileSiteKey?: string;
   turnstileOptions?: Omit<TurnstileRenderOptions, 'sitekey'>;
+  /** Preferred template language (BCP 47, e.g. `de`), sent as `fm_locale` unless the form has an `fm_locale` field. Overrides `sendOptions.locale`. */
+  locale?: string;
   sendOptions?: SendOptions;
   /** Reset the form after a successful send. Default `true`. */
   resetOnSuccess?: boolean;
@@ -62,8 +64,9 @@ export function frontmailForm(node: HTMLFormElement, params: FrontmailFormParams
       p.onState?.(s);
       if (s.error) p.onError?.(s.error);
     };
+    const options = p.locale ? { ...p.sendOptions, locale: p.locale } : p.sendOptions;
     const result = fm
-      ? await fm.track(() => fm.client.sendForm(p.serviceId, p.templateId, node, p.sendOptions), onState)
+      ? await fm.track(() => fm.client.sendForm(p.serviceId, p.templateId, node, options), onState)
       : await trackSend(() => Promise.reject(new FrontmailError('not_initialized', 'Call createFrontmail({ publicKey }) first.')), onState);
     turnstile?.api.reset(turnstile.widgetId);
     if (result) {

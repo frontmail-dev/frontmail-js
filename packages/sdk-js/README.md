@@ -21,7 +21,10 @@ await frontmail.getStatus(res.messageId, { token: res.statusToken }); // → { s
 
 `serviceId` may be `null` to use the organization's default service. The last argument of `send` /
 `sendForm` can be a public key string (EmailJS style) or `SendOptions`
-(`{ publicKey, idempotencyKey, turnstileToken, attachments, blockHeadless, blockList, limitRate, signal }`).
+(`{ publicKey, idempotencyKey, turnstileToken, locale, attachments, blockHeadless, blockList, limitRate, signal }`).
+
+`locale` (e.g. `{ locale: 'de' }`) picks a language variant of the template – the API falls back to the same base language (`de-AT` → `de`), then to the template's default language. `sendForm` sends it as the `fm_locale` field (a form's own
+`fm_locale` field wins); the result's `locale` is the language used.
 
 ### `<script>` / CDN (UMD)
 

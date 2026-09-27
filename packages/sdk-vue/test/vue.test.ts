@@ -149,6 +149,20 @@ describe('<FrontmailForm>', () => {
     expect(turnstile.reset).toHaveBeenCalledWith('w1');
   });
 
+  it('sends the locale prop as fm_locale', async () => {
+    const f = deferredFetch();
+    render(
+      defineComponent({
+        setup: () => () => h(FrontmailForm, { templateId: 'tpl', locale: 'de', 'data-testid': 'form' }, { default: () => h('input', { name: 'email', value: 'a@b.cz' }) }),
+      }),
+      { global: { plugins: [[Frontmail, { publicKey: 'pk', fetch: f.fetch }]] } },
+    );
+    await fireEvent.submit(screen.getByTestId('form'));
+    await waitFor(() => expect(f.calls).toHaveLength(1));
+    expect((f.calls[0]!.body as FormData).get('fm_locale')).toBe('de');
+    await f.respond(accepted());
+  });
+
   it('emits error', async () => {
     const f = deferredFetch();
     const onError = vi.fn();

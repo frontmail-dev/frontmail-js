@@ -125,6 +125,19 @@ describe('useSendEmail', () => {
     expect(keys[1]).toBe(keys[0]);
   });
 
+  it('passes the locale option and exposes the resolved locale', async () => {
+    const f = deferredFetch();
+    const { result } = renderHook(() => useSendEmail(null, 'tpl'), { wrapper: wrapper({ publicKey: 'pk', fetch: f.fetch }) });
+    let p!: Promise<SendResult | undefined>;
+    act(() => {
+      p = result.current.send({ email: 'a@b.cz' }, { locale: 'de-AT' });
+    });
+    await f.respond(jsonResponse(202, { message_id: 'msg_1', status: 'queued', status_token: 'tok_1', locale: 'de' }));
+    await act(async () => void (await p));
+    expect(JSON.parse(f.calls[0]!.init.body as string)).toMatchObject({ locale: 'de-AT' });
+    expect(result.current.result?.locale).toBe('de');
+  });
+
   it('getStatus reads the last message with its status token', async () => {
     const fetch = vi.fn(async (url: string) =>
       url.includes('/v1/messages/') ? jsonResponse(200, { message_id: 'msg_1', status: 'delivered', created_at: 'x', events: [] }) : accepted(),

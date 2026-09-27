@@ -121,6 +121,19 @@ describe('use:frontmailForm', () => {
     expect(form.querySelector('.frontmail-turnstile')).toBeNull();
   });
 
+  it('passes locale (over sendOptions.locale) to sendForm', async () => {
+    const f = deferredFetch();
+    const fm = createFrontmail({ publicKey: 'pk', fetch: f.fetch });
+    document.body.innerHTML = '<form><input name="email" value="a@b.cz"></form>';
+    const form = document.forms[0]!;
+    const action = frontmailForm(form, { frontmail: fm, templateId: 'tpl', locale: 'cs', sendOptions: { locale: 'de' } });
+    form.dispatchEvent(new Event('submit', { cancelable: true }));
+    await waitFor(() => expect(f.calls).toHaveLength(1));
+    expect((f.calls[0]!.body as FormData).get('fm_locale')).toBe('cs');
+    await f.respond(accepted());
+    action.destroy();
+  });
+
   it('reports a missing instance as an error', async () => {
     vi.resetModules();
     const mod = await import('../src/index');
@@ -148,6 +161,15 @@ describe('<FrontmailForm>', () => {
     expect(onSuccess).toHaveBeenCalledWith(expect.objectContaining({ status: 'held' }));
     expect((f.calls[0]!.body as FormData).get('cf-turnstile-response')).toBe('ts-token');
     expect(turnstile.reset).toHaveBeenCalledWith('w1');
+  });
+
+  it('sends the locale prop as fm_locale', async () => {
+    const f = deferredFetch();
+    render(Harness, { frontmail: createFrontmail({ publicKey: 'pk', fetch: f.fetch }), locale: 'de' });
+    await fireEvent.submit(screen.getByTestId('form'));
+    await waitFor(() => expect(f.calls).toHaveLength(1));
+    expect((f.calls[0]!.body as FormData).get('fm_locale')).toBe('de');
+    await f.respond(accepted());
   });
 
   it('idle → sending → error', async () => {

@@ -143,6 +143,22 @@ describe('<FrontmailForm>', () => {
     expect(turnstile.reset).toHaveBeenCalledWith('w1');
   });
 
+  it('sends the locale prop as fm_locale', async () => {
+    const f = deferredFetch();
+    render(
+      <FrontmailProvider options={{ publicKey: 'pk', fetch: f.fetch }}>
+        <FrontmailForm templateId="tpl" locale="de" sendOptions={{ locale: 'fr', idempotencyKey: 'k1' }} data-testid="form">
+          <input name="email" defaultValue="a@b.cz" />
+        </FrontmailForm>
+      </FrontmailProvider>,
+    );
+    fireEvent.submit(screen.getByTestId('form'));
+    await waitFor(() => expect(f.calls).toHaveLength(1));
+    expect((f.calls[0]!.body as FormData).get('fm_locale')).toBe('de');
+    expect((f.calls[0]!.headers as Record<string, string>)['Idempotency-Key']).toBe('k1');
+    await f.respond(accepted());
+  });
+
   it('reports errors through onError and the render prop', async () => {
     const f = deferredFetch();
     const onError = vi.fn();

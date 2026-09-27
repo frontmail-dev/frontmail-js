@@ -5,7 +5,7 @@ import type { PropType } from 'vue';
 import { useSendEmail } from './useSendEmail';
 
 /**
- * `<FrontmailForm service-id template-id turnstile-site-key>` – submits its fields (and files)
+ * `<FrontmailForm service-id template-id turnstile-site-key locale>` – submits its fields (and files)
  * via `sendForm`. Default slot props: `{ status, error, result }`.
  * Emits `success(result)`, `error(error)` and `status(status)`.
  */
@@ -16,6 +16,8 @@ export const FrontmailForm = defineComponent({
     templateId: { type: String, required: true },
     turnstileSiteKey: { type: String, default: undefined },
     turnstileOptions: { type: Object as PropType<Omit<TurnstileRenderOptions, 'sitekey'>>, default: undefined },
+    /** Preferred template language (BCP 47, e.g. `de`), sent as `fm_locale` unless the form has an `fm_locale` field. Overrides `sendOptions.locale`. */
+    locale: { type: String, default: undefined },
     sendOptions: { type: Object as PropType<SendOptions>, default: undefined },
     resetOnSuccess: { type: Boolean, default: true },
   },
@@ -53,7 +55,7 @@ export const FrontmailForm = defineComponent({
     async function onSubmit(e: Event) {
       e.preventDefault();
       const form = e.currentTarget as HTMLFormElement;
-      const r = await sendForm(form, props.sendOptions);
+      const r = await sendForm(form, props.locale ? { ...props.sendOptions, locale: props.locale } : props.sendOptions);
       turnstile?.api.reset(turnstile.widgetId);
       if (r) {
         if (props.resetOnSuccess) form.reset();

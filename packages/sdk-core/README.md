@@ -40,6 +40,12 @@ Per-call `SendOptions` accept the same guards plus `idempotencyKey`, `turnstileT
 (`{ filename, contentType, contentBase64 }` or `{ uploadId }`), `formFields` (`sendForm` only:
 `{ include?: string[], exclude?: string[] }`) and `signal`.
 
+`locale` (BCP 47, e.g. `'de'`) picks a language variant of the template; the API falls back to the same base language (`de-AT` → `de`), then to the template's default language – an unknown language is not an error. `send` sends it as `locale`,
+`sendForm` as the reserved form field `fm_locale` unless the form already has an `fm_locale` field (e.g.
+a language `<select name="fm_locale">`; a plain `locale` field stays a template param). The result's
+`locale` is the language the email was rendered in. `formToParams` returns an `fm_locale` field as
+`locale`, and `fm_locale` passes a `formFields.include` allowlist like the Turnstile token.
+
 `sendForm` / `formToParams` never send password inputs, well-known anti-CSRF fields
 (`csrfmiddlewaretoken`, `_token`, `authenticity_token`, `__RequestVerificationToken`, `_csrf`,
 `csrf_token`) or reserved API names (`accessToken`, `privateKey`, `turnstile_key`, …) unless

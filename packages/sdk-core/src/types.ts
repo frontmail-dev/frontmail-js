@@ -108,6 +108,13 @@ export interface SendOptions extends GuardOptions {
    * `@frontmail/react-native` sets `'org'` automatically for tokens from a custom `siteKey`.
    */
   turnstileKey?: TurnstileKey;
+  /**
+   * Preferred template language as a BCP 47 tag (`de`, `pt-BR`). The API picks the exact variant,
+   * then one with the same base language (`de-AT` → `de`), otherwise the template's default language
+   * – an unknown language is not an error. Omit it to send the default language. `sendForm` sends it
+   * as the `fm_locale` field unless the form already has an `fm_locale` input.
+   */
+  locale?: string;
   attachments?: AttachmentInput[];
   /**
    * `sendForm` only: which form fields are sent. By default password inputs, well-known CSRF
@@ -126,6 +133,8 @@ export interface SendResult {
   status: AcceptedStatus;
   /** Lets a public-key client read the message status via `getStatus`. */
   statusToken: string;
+  /** Language the template was rendered in (the resolved `locale`, or the template's default). */
+  locale?: string;
   status_code: 202;
   text: 'OK';
 }

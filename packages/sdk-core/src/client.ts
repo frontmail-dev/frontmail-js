@@ -1,5 +1,5 @@
 import { FrontmailError, NetworkError, errorFromResponse } from './errors';
-import { TURNSTILE_FIELD, formData, resolveForm } from './form';
+import { LOCALE_FIELD, TURNSTILE_FIELD, formData, resolveForm } from './form';
 import { blockHeadless, blockList, limitRate } from './guards';
 import type { Client, ClientOptions, RequestOptions, SendOptions, SendResult } from './types';
 import { backoffDelay, camelize, isBrowser, parseRetryAfter, sleep, uuid } from './utils';
@@ -14,6 +14,7 @@ interface RawSendResponse {
   message_id: string;
   status: 'queued' | 'held';
   status_token: string;
+  locale?: string;
 }
 
 /**
@@ -112,7 +113,9 @@ export function createClient(options: ClientOptions = {}): Client {
     const raw = await run(o.idempotencyKey || uuid());
     if (!raw || !raw.message_id) throw new FrontmailError('invalid_response', 'Unexpected API response.');
     await record();
-    return { messageId: raw.message_id, status: raw.status, statusToken: raw.status_token, status_code: 202, text: 'OK' };
+    const result: SendResult = { messageId: raw.message_id, status: raw.status, statusToken: raw.status_token, status_code: 202, text: 'OK' };
+    if (raw.locale) result.locale = raw.locale;
+    return result;
   };
 
   return {
@@ -130,6 +133,7 @@ export function createClient(options: ClientOptions = {}): Client {
             template_params: p,
             turnstile_token: o.turnstileToken,
             turnstile_key: o.turnstileKey,
+            locale: o.locale || undefined,
             attachments: o.attachments?.map((a) =>
               'uploadId' in a
                 ? { upload_id: a.uploadId }
@@ -151,6 +155,8 @@ export function createClient(options: ClientOptions = {}): Client {
       if (publicKey) fd.set('user_id', publicKey);
       if (o.turnstileToken) fd.set(TURNSTILE_FIELD, o.turnstileToken);
       if (o.turnstileKey) fd.set('turnstile_key', o.turnstileKey);
+      // A language picker in the form (`<select name="fm_locale">`) wins over the option.
+      if (o.locale && !fd.has(LOCALE_FIELD)) fd.set(LOCALE_FIELD, o.locale);
       return guarded(o, (n) => fd.get(n), (idempotencyKey) =>
         request<RawSendResponse>(options.paths?.sendForm ?? '/v1/send-form', {
           method: 'POST',

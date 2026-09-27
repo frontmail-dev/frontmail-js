@@ -35,13 +35,18 @@ export interface SendInput<T extends string = string> {
   templateId: T;
   params?: TemplateParams<T>;
   attachments?: AttachmentInput[];
+  /**
+   * Preferred template language (BCP 47, e.g. `de`, `pt-BR`). Falls back to the same base language,
+   * then to the template's default language; omit it to send the default language.
+   */
+  locale?: string;
   /** Defaults to a random UUID (reused across retries). */
   idempotencyKey?: string;
   signal?: AbortSignal;
 }
 
 export type BatchItemResult =
-  | { index: number; ok: true; messageId: string; status: 'queued' | 'held' }
+  | { index: number; ok: true; messageId: string; status: 'queued' | 'held'; locale?: string }
   | { index: number; ok: false; error: FrontmailError };
 
 export interface HistoryQuery {
@@ -109,16 +114,18 @@ interface RawSend {
   message_id: string;
   status: 'queued' | 'held';
   status_token: string;
+  locale?: string;
 }
 
 interface RawBatch {
-  results: Array<{ index: number; message_id?: string; status?: 'queued' | 'held'; error?: { code: ApiErrorCode; message: string; docs_url?: string; details?: unknown } }>;
+  results: Array<{ index: number; message_id?: string; status?: 'queued' | 'held'; locale?: string; error?: { code: ApiErrorCode; message: string; docs_url?: string; details?: unknown } }>;
 }
 
 interface RawTemplate {
   template_id: string;
   name: string;
   params?: TemplateSchema['params'];
+  locales?: string[];
   [key: string]: unknown;
 }
 
@@ -126,13 +133,19 @@ const toBody = (m: SendInput, idempotencyKey?: string) => ({
   service_id: m.serviceId,
   template_id: m.templateId,
   template_params: m.params ?? {},
+  locale: m.locale || undefined,
   attachments: m.attachments?.map((a) =>
     'uploadId' in a ? { upload_id: a.uploadId } : { filename: a.filename, content_type: a.contentType, content_base64: a.contentBase64 },
   ),
   idempotency_key: idempotencyKey,
 });
 
-const toTemplate = (t: RawTemplate): TemplateSchema => ({ templateId: t.template_id, name: t.name, params: t.params ?? [] });
+const toTemplate = (t: RawTemplate): TemplateSchema => ({
+  templateId: t.template_id,
+  name: t.name,
+  params: t.params ?? [],
+  ...(Array.isArray(t.locales) && t.locales.length ? { locales: t.locales } : {}),
+});
 
 /** Server-side Frontmail client (private key). */
 export class Frontmail {
@@ -163,7 +176,9 @@ export class Frontmail {
       idempotencyKey: input.idempotencyKey ?? uuid(),
       signal: input.signal,
     });
-    return { messageId: raw.message_id, status: raw.status, statusToken: raw.status_token, status_code: 202, text: 'OK' };
+    const result: SendResult = { messageId: raw.message_id, status: raw.status, statusToken: raw.status_token, status_code: 202, text: 'OK' };
+    if (raw.locale) result.locale = raw.locale;
+    return result;
   }
 
   /** Sends up to 100 emails in one request. Never throws for per-item errors – check `ok`. */
@@ -184,7 +199,7 @@ export class Frontmail {
     return raw.results.map((r) =>
       r.error
         ? { index: r.index, ok: false, error: errorFromResponse(ERROR_STATUS[r.error.code] ?? 400, { error: r.error }) }
-        : { index: r.index, ok: true, messageId: r.message_id!, status: r.status! },
+        : { index: r.index, ok: true, messageId: r.message_id!, status: r.status!, ...(r.locale ? { locale: r.locale } : {}) },
     );
   }
 

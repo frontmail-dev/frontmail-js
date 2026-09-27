@@ -19,7 +19,10 @@ const { messageId, status } = await frontmail.send({
   attachments: [{ filename: 'a.pdf', contentType: 'application/pdf', contentBase64: '…' }],
 });
 
-const results = await frontmail.sendBatch([{ templateId: 'tpl_…', params: {} } /* … up to 100 */]);
+// Language variant: exact match, then the same base language (de-AT → de), else the default language.
+const { locale } = await frontmail.send({ templateId: 'tpl_…', params: { name: 'Jan' }, locale: 'de' }); // locale: language used
+
+const results = await frontmail.sendBatch([{ templateId: 'tpl_…', params: {}, locale: 'cs' } /* … up to 100 */]);
 for (const r of results) r.ok ? console.log(r.messageId, r.status) : console.error(r.error.code);
 
 await frontmail.getMessage(messageId); // { status, events, … }
@@ -27,7 +30,7 @@ await frontmail.getMessage(messageId); // { status, events, … }
 const page = await frontmail.history({ limit: 50, status: 'bounced' }); // one page: { items, nextCursor }
 for await (const item of frontmail.history({ templateId: 'tpl_…' })) console.log(item.messageId); // all pages
 
-await frontmail.templates.list(); // [{ templateId, name, params }]
+await frontmail.templates.list(); // [{ templateId, name, params, locales? }] – locales: default first
 ```
 
 Options: `privateKey`, `apiUrl`, `retry`, `timeoutMs`, `fetch`. Every send carries an `Idempotency-Key`
@@ -48,7 +51,9 @@ FRONTMAIL_PRIVATE_KEY=sk_… npx frontmail types [--out frontmail-env.d.ts] [--a
 Fetches `GET /v1/templates` and writes one `<TemplateName>Params` interface per template
 (`string`/`text`/`email`/`url`/`html`/`date` → `string`, `number`, `boolean`, `enum` → string-literal union,
 `list` → `Array<{…}>`, optional unless required) plus a `FrontmailTemplates` augmentation for every
-Frontmail SDK found in your `package.json` (or the `--module` list):
+Frontmail SDK found in your `package.json` (or the `--module` list). Templates with language variants
+also get their languages in the doc comment and a `<TemplateName>Locale` union type
+(`export type ContactFormLocale = "en" | "de";`, default first) for the `locale` option:
 
 ```ts
 declare module '@frontmail/react' {
