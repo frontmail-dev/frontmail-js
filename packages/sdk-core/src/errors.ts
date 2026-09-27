@@ -40,6 +40,7 @@ export type ApiErrorCode =
   | 'template_render_failed'
   | 'invalid_recipient'
   | 'service_unavailable_for_template'
+  | 'sender_not_configured'
   | 'rate_limited'
   | 'test_send_limit'
   | 'recipient_suppressed'
@@ -186,6 +187,7 @@ export const ERROR_STATUS: Record<ApiErrorCode, number> = {
   template_render_failed: 422,
   invalid_recipient: 422,
   service_unavailable_for_template: 422,
+  sender_not_configured: 422,
   rate_limited: 429,
   test_send_limit: 429,
   recipient_suppressed: 451,
